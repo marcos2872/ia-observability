@@ -38,6 +38,9 @@ def demo_automatic_token_tracking() -> None:
             messages=[{"role": "user", "content": prompt}],
         )
 
+    # Flush async logging antes de buscar traces
+    mlflow.flush_trace_async_logging()
+
     # Busca traces programaticamente
     traces_df = mlflow.search_traces(max_results=3)
 
@@ -101,9 +104,14 @@ def demo_span_level_usage() -> None:
     print(f"  Pipeline result: {result[:100]}...\n")
 
     # Acessa token usage por span
+    # Flush pendente de async logging antes de buscar o trace
+    mlflow.flush_trace_async_logging()
     trace_id = mlflow.get_last_active_trace_id()
     if trace_id:
         trace = mlflow.get_trace(trace_id=trace_id)
+        if trace is None:
+            print("  [WARN] Trace nao disponivel ainda no tracking store.")
+            return
         print(f"  Detalhamento por span:")
         for span in trace.data.spans:
             usage = span.get_attribute("mlflow.chat.tokenUsage")
