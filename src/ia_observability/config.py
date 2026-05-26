@@ -20,10 +20,16 @@ MODEL_NAME: str = os.getenv("mlflow_model", "gemma4-e4b")
 def setup_mlflow(experiment_name: str) -> None:
     """Configura o MLflow tracking URI e experiment.
 
+    Se o experiment foi deletado, restaura automaticamente antes de setar.
+
     Args:
         experiment_name: Nome do experiment no MLflow.
     """
     mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+    client = mlflow.MlflowClient()
+    experiment = client.get_experiment_by_name(experiment_name)
+    if experiment and experiment.lifecycle_stage == "deleted":
+        client.restore_experiment(experiment.experiment_id)
     mlflow.set_experiment(experiment_name)
 
 

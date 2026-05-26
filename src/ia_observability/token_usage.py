@@ -2,7 +2,9 @@
 
 O MLflow captura automaticamente:
 - Token usage: input_tokens, output_tokens, total_tokens
-- Custo: input_cost, output_cost, total_cost (requer MLflow >= 3.10 com [genai])
+- Custo: calculado automaticamente APENAS para modelos com pricing registrado
+  (OpenAI, Anthropic, etc.). Para modelos self-hosted, o custo deve ser setado
+  manualmente via span attributes.
 
 Tambem e possivel setar esses valores manualmente para modelos que nao
 reportam usage automaticamente.
@@ -14,12 +16,18 @@ import mlflow
 
 from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
 
+# Pricing customizado para modelo self-hosted (USD por token)
+# Ajuste conforme custo real de infra (GPU, energia, etc.)
+CUSTOM_INPUT_COST_PER_TOKEN = 0.000001  # $1.00 / 1M input tokens
+CUSTOM_OUTPUT_COST_PER_TOKEN = 0.000002  # $2.00 / 1M output tokens
+
 
 def demo_automatic_token_tracking() -> None:
     """Executa chamadas e exibe metricas de token/custo capturadas automaticamente.
 
     O auto-tracing do MLflow captura token usage de qualquer chamada
-    ao OpenAI SDK. Os dados ficam disponiveis tanto no UI quanto via API.
+    ao OpenAI SDK. Custo automatico requer modelo com pricing registrado.
+    Para modelos self-hosted, calculamos custo manualmente com pricing customizado.
     """
     mlflow.openai.autolog()
     client = get_client()
@@ -44,28 +52,34 @@ def demo_automatic_token_tracking() -> None:
     # Busca traces programaticamente
     traces_df = mlflow.search_traces(max_results=3)
 
-    print(f"  {'Trace ID':<12} | {'Input':<8} | {'Output':<8} | {'Total':<8} | {'Custo':<12}")
-    print(f"  {'-'*12} | {'-'*8} | {'-'*8} | {'-'*8} | {'-'*12}")
+    print(f"  {'Trace ID':<12} | {'Input':<8} | {'Output':<8} | {'Total':<8} | {'Custo (custom)':<15}")
+    print(f"  {'-'*12} | {'-'*8} | {'-'*8} | {'-'*8} | {'-'*15}")
 
     for _, row in traces_df.iterrows():
         trace = mlflow.get_trace(trace_id=row["trace_id"])
         usage = trace.info.token_usage
-        cost = trace.info.cost
 
         trace_short = trace.info.trace_id[:10]
         if usage:
-            input_t = str(usage.get("input_tokens", "?"))
-            output_t = str(usage.get("output_tokens", "?"))
-            total_t = str(usage.get("total_tokens", "?"))
+            input_t = usage.get("input_tokens", 0)
+            output_t = usage.get("output_tokens", 0)
+            total_t = usage.get("total_tokens", 0)
+            # Calcula custo customizado para modelo self-hosted
+            custom_cost = (
+                input_t * CUSTOM_INPUT_COST_PER_TOKEN
+                + output_t * CUSTOM_OUTPUT_COST_PER_TOKEN
+            )
+            cost_str = f"${custom_cost:.6f}"
         else:
             input_t = output_t = total_t = "N/A"
-
-        if cost:
-            cost_str = f"${cost.get('total_cost', 0):.6f}"
-        else:
             cost_str = "N/A"
 
-        print(f"  {trace_short:<12} | {input_t:<8} | {output_t:<8} | {total_t:<8} | {cost_str:<12}")
+        print(f"  {trace_short:<12} | {str(input_t):<8} | {str(output_t):<8} | {str(total_t):<8} | {cost_str:<15}")
+
+    print(f"\n  Pricing: input=${CUSTOM_INPUT_COST_PER_TOKEN*1_000_000:.2f}/1M tokens, "
+          f"output=${CUSTOM_OUTPUT_COST_PER_TOKEN*1_000_000:.2f}/1M tokens")
+    print("  (MLflow so calcula custo automatico para modelos com pricing registrado;"
+          "\n   para self-hosted, use set_attribute no span conforme Demo 3)")
 
 
 def demo_span_level_usage() -> None:
@@ -126,35 +140,40 @@ def demo_span_level_usage() -> None:
 
 @mlflow.trace
 def demo_manual_token_attribution() -> str:
-    """Demonstra como setar token usage manualmente em um span.
+    """Demonstra como setar token usage e custo manualmente em um span.
 
-    Util para:
-    - Modelos locais que nao reportam usage
-    - APIs customizadas
-    - Simulacoes e testes
+    Essencial para modelos self-hosted onde o MLflow nao tem pricing registrado.
+    Padrao recomendado: calcular custo baseado em token count + pricing customizado.
     """
     span = mlflow.get_current_active_span()
 
     # Simula chamada a um modelo local/customizado
     result = "Resposta simulada de um modelo local sem contagem automatica de tokens."
 
+    # Valores de token usage (em cenario real, viria do response do modelo)
+    input_tokens = 42
+    output_tokens = 15
+    total_tokens = input_tokens + output_tokens
+
     # Seta manualmente os atributos de token usage
     span.set_attribute(
         "mlflow.chat.tokenUsage",
         {
-            "input_tokens": 42,
-            "output_tokens": 15,
-            "total_tokens": 57,
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
         },
     )
 
-    # Seta custo manualmente (em USD)
+    # Calcula e seta custo baseado em pricing customizado
+    input_cost = input_tokens * CUSTOM_INPUT_COST_PER_TOKEN
+    output_cost = output_tokens * CUSTOM_OUTPUT_COST_PER_TOKEN
     span.set_attribute(
         "mlflow.llm.cost",
         {
-            "input_cost": 0.00001,
-            "output_cost": 0.00002,
-            "total_cost": 0.00003,
+            "input_cost": input_cost,
+            "output_cost": output_cost,
+            "total_cost": input_cost + output_cost,
         },
     )
 
@@ -187,7 +206,10 @@ def main() -> None:
     print(f"  Resultado: {result}")
 
     print("\n" + "-" * 60)
-    print("Abra o MLflow UI -> Experiment '02-token-usage' para ver graficos de custo.")
+    print("Abra o MLflow UI -> Experiment '02-token-usage' para ver token usage.")
+    print("O grafico de custo mostra valores apenas para traces com custo")
+    print("setado manualmente (Demo 3) — modelos self-hosted nao tem pricing")
+    print("automatico no MLflow.")
     print("-" * 60)
 
 
