@@ -1,4 +1,4 @@
-.PHONY: help install tracing tokens sessions evaluation judges versioning monitoring benchmark toolcalls prompts all
+.PHONY: help install tracing tokens sessions evaluation judges versioning monitoring benchmark toolcalls prompts langchain-agent all
 
 help: ## Mostra esta ajuda
 	@echo "Comandos disponiveis:"
@@ -38,4 +38,7 @@ toolcalls: ## Executa demo de tool calling com observabilidade
 prompts: ## Executa demo de prompt registry e versionamento
 	uv run prompts
 
-all: tracing tokens sessions evaluation judges versioning monitoring benchmark toolcalls prompts ## Executa todos os modulos em sequencia
+langchain-agent: ## Executa demo de LangChain agent (tools + sessions)
+	uv run langchain-agent
+
+all: tracing tokens sessions evaluation judges versioning monitoring benchmark toolcalls prompts langchain-agent ## Executa todos os modulos em sequencia

@@ -10,6 +10,8 @@ dependencies = [
     "python-dotenv>=1.0.0",
     "gepa>=0.0.26",
     "litellm",
+    "langchain>=0.3",
+    "langchain-openai>=0.3",
 ]
 
 [project.scripts]
@@ -23,6 +25,7 @@ monitoring = "ia_observability.production_monitoring:main"
 benchmark = "ia_observability.experiment_comparison:main"
 toolcalls = "ia_observability.tool_calls:main"
 prompts = "ia_observability.prompt_management:main"
+langchain-agent = "ia_observability.langchain_agent:main"
 
 [build-system]
 requires = ["hatchling"]
