@@ -16,8 +16,9 @@ MLFLOW_TRACKING_URI: str = os.getenv("mlflow_url", "http://localhost:5000")
 MLFLOW_GATEWAY_URL: str = os.getenv("mlflow_openia_url", "http://localhost:5000/gateway/mlflow/v1")
 MODEL_NAME: str = os.getenv("mlflow_model", "gemma4-e4b")
 
-# Judge model URI para scorers built-in (roteia pelo AI Gateway)
-JUDGE_MODEL: str = f"gateway:/{MODEL_NAME}"
+# Judge model separado — permite usar um modelo maior/melhor para avaliacao
+_JUDGE_MODEL_NAME: str = os.getenv("mlflow_judge_model", MODEL_NAME)
+JUDGE_MODEL: str = f"gateway:/{_JUDGE_MODEL_NAME}"
 
 
 def setup_mlflow(experiment_name: str) -> None:

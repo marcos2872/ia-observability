@@ -12,6 +12,7 @@ Referencia: https://mlflow.org/docs/latest/genai/eval-monitor/scorers/
 """
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.genai.scorers import Guidelines, scorer
 
 from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_judge_timeout, setup_mlflow
@@ -23,34 +24,32 @@ from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_j
 
 
 @scorer
-def response_length_check(inputs, outputs) -> dict:
+def response_length_check(inputs, outputs) -> Feedback:
     """Verifica se a resposta tem tamanho adequado (10-500 chars).
 
-    Code-based scorers sao funcoes Python puras que recebem inputs/outputs
-    e retornam um dict com 'score' (bool/float) e 'rationale' (explicacao).
-
+    Code-based scorers retornam Feedback com value (bool/float) e rationale.
     Use quando a avaliacao pode ser feita por regras deterministicas.
     """
     if outputs is None:
-        return {"score": False, "rationale": "Nenhuma resposta foi gerada."}
+        return Feedback(value=False, rationale="Nenhuma resposta foi gerada.")
 
     length = len(str(outputs))
     passed = 10 <= length <= 500
-    return {
-        "score": passed,
-        "rationale": f"Resposta tem {length} caracteres. Faixa aceita: 10-500.",
-    }
+    return Feedback(
+        value=passed,
+        rationale=f"Resposta tem {length} caracteres. Faixa aceita: 10-500.",
+    )
 
 
 @scorer
-def no_hallucination_keywords(inputs, outputs) -> dict:
+def no_hallucination_keywords(inputs, outputs) -> Feedback:
     """Detecta possiveis marcadores de alucinacao na resposta.
 
     Verifica se a resposta contem frases que indicam incerteza fingida
     ou informacao fabricada, como datas muito especificas sem fonte.
     """
     if outputs is None:
-        return {"score": False, "rationale": "Sem resposta."}
+        return Feedback(value=False, rationale="Sem resposta.")
 
     # Indicadores de possivel alucinacao
     red_flags = [
@@ -64,32 +63,32 @@ def no_hallucination_keywords(inputs, outputs) -> dict:
     found_flags = [flag for flag in red_flags if flag in output_lower]
 
     if found_flags:
-        return {
-            "score": False,
-            "rationale": f"Possiveis indicadores de alucinacao: {found_flags}",
-        }
-    return {
-        "score": True,
-        "rationale": "Nenhum indicador de alucinacao detectado.",
-    }
+        return Feedback(
+            value=False,
+            rationale=f"Possiveis indicadores de alucinacao: {found_flags}",
+        )
+    return Feedback(
+        value=True,
+        rationale="Nenhum indicador de alucinacao detectado.",
+    )
 
 
 @scorer
-def contains_actionable_info(inputs, outputs) -> dict:
+def contains_actionable_info(inputs, outputs) -> Feedback:
     """Verifica se a resposta contem informacao acionavel.
 
     Para perguntas do tipo 'como fazer X', a resposta deve conter
     passos, comandos, ou instrucoes claras.
     """
     if outputs is None:
-        return {"score": False, "rationale": "Sem resposta."}
+        return Feedback(value=False, rationale="Sem resposta.")
 
     question = inputs.get("question", "")
     output_str = str(outputs).lower()
 
     # So aplica para perguntas do tipo "como"
     if not any(kw in question.lower() for kw in ["como", "how", "de que forma"]):
-        return {"score": True, "rationale": "Pergunta nao requer acao. N/A."}
+        return Feedback(value=True, rationale="Pergunta nao requer acao. N/A.")
 
     # Indicadores de conteudo acionavel
     actionable_markers = [
@@ -99,14 +98,14 @@ def contains_actionable_info(inputs, outputs) -> dict:
     ]
 
     has_actionable = any(marker in output_str for marker in actionable_markers)
-    return {
-        "score": has_actionable,
-        "rationale": (
+    return Feedback(
+        value=has_actionable,
+        rationale=(
             "Contem informacao acionavel (passos/comandos)."
             if has_actionable
             else "Resposta generica sem instrucoes claras."
         ),
-    }
+    )
 
 
 # ---------------------------------------------------------------------------
