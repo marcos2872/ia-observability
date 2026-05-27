@@ -15,10 +15,7 @@ Referencia: https://mlflow.org/docs/latest/genai/eval-monitor/
 import mlflow
 from mlflow.genai.scorers import Correctness, Guidelines, RelevanceToQuery
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
-
-# Judge model via AI Gateway
-JUDGE_MODEL = f"gateway:/{MODEL_NAME}"
+from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_judge_timeout, setup_mlflow
 
 # ---------------------------------------------------------------------------
 # Dataset de benchmark (compartilhado entre todas as configuracoes)
@@ -142,6 +139,7 @@ def make_predict_fn(system_prompt: str, temperature: float):
 def main() -> None:
     """Executa benchmark comparativo entre configuracoes."""
     setup_mlflow("08-experiment-comparison")
+    patch_judge_timeout(300)
     mlflow.openai.autolog()
 
     print("=" * 60)

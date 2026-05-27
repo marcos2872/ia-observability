@@ -14,10 +14,7 @@ Referencia: https://mlflow.org/docs/latest/genai/eval-monitor/scorers/
 import mlflow
 from mlflow.genai.scorers import Guidelines, scorer
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
-
-# Judge model via AI Gateway (necessario para modelos self-hosted)
-JUDGE_MODEL = f"gateway:/{MODEL_NAME}"
+from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_judge_timeout, setup_mlflow
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +142,7 @@ def predict_fn(question: str) -> str:
 def main() -> None:
     """Executa avaliacao com judges customizados."""
     setup_mlflow("05-judges")
+    patch_judge_timeout(300)
     mlflow.openai.autolog()
 
     dataset = [

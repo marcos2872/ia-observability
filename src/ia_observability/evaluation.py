@@ -18,11 +18,7 @@ Referencia: https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/
 import mlflow
 from mlflow.genai.scorers import Correctness, Guidelines, RelevanceToQuery
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
-
-# O judge model precisa ser no formato "gateway:/<model>" para usar o AI Gateway.
-# Sem isso, MLflow tenta usar "openai:/gpt-4.1-mini" (default) que requer OPENAI_API_KEY.
-JUDGE_MODEL = f"gateway:/{MODEL_NAME}"
+from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_judge_timeout, setup_mlflow
 
 
 def get_eval_dataset() -> list[dict]:
@@ -113,6 +109,7 @@ def predict_fn(question: str) -> str:
 def main() -> None:
     """Executa avaliacao completa com scorers built-in."""
     setup_mlflow("04-evaluation")
+    patch_judge_timeout(300)
     mlflow.openai.autolog()
 
     dataset = get_eval_dataset()
