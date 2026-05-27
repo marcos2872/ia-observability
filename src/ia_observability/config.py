@@ -20,6 +20,11 @@ MODEL_NAME: str = os.getenv("mlflow_model", "gemma4-e4b")
 _JUDGE_MODEL_NAME: str = os.getenv("mlflow_judge_model", MODEL_NAME)
 JUDGE_MODEL: str = f"gateway:/{_JUDGE_MODEL_NAME}"
 
+# Azure OpenAI — usado para prompt optimization (GepaPromptOptimizer)
+AZURE_OPENAI_DEPLOYMENT: str = os.getenv("AZURE_OPENAI_DEPLOYMENT", "gpt-4o")
+AZURE_MODEL: str = f"azure:/{AZURE_OPENAI_DEPLOYMENT}"
+AZURE_AVAILABLE: bool = bool(os.getenv("AZURE_OPENAI_API_KEY"))
+
 
 def setup_mlflow(experiment_name: str) -> None:
     """Configura o MLflow tracking URI e experiment.

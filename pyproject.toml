@@ -8,6 +8,8 @@ dependencies = [
     "mlflow[genai]>=3.10.0",
     "openai>=1.0.0",
     "python-dotenv>=1.0.0",
+    "gepa>=0.0.26",
+    "litellm",
 ]
 
 [project.scripts]
@@ -20,6 +22,7 @@ versioning = "ia_observability.version_tracking:main"
 monitoring = "ia_observability.production_monitoring:main"
 benchmark = "ia_observability.experiment_comparison:main"
 toolcalls = "ia_observability.tool_calls:main"
+prompts = "ia_observability.prompt_management:main"
 
 [build-system]
 requires = ["hatchling"]

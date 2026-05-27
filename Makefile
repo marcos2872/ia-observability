@@ -1,4 +1,4 @@
-.PHONY: help install tracing tokens sessions evaluation judges versioning monitoring benchmark toolcalls all
+.PHONY: help install tracing tokens sessions evaluation judges versioning monitoring benchmark toolcalls prompts all
 
 help: ## Mostra esta ajuda
 	@echo "Comandos disponiveis:"
@@ -35,4 +35,7 @@ benchmark: ## Executa benchmark comparativo de configuracoes
 toolcalls: ## Executa demo de tool calling com observabilidade
 	uv run toolcalls
 
-all: tracing tokens sessions evaluation judges versioning monitoring benchmark toolcalls ## Executa todos os modulos em sequencia
+prompts: ## Executa demo de prompt registry e versionamento
+	uv run prompts
+
+all: tracing tokens sessions evaluation judges versioning monitoring benchmark toolcalls prompts ## Executa todos os modulos em sequencia

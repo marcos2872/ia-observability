@@ -49,6 +49,7 @@ src/ia_observability/
   production_monitoring.py   # 07 - async tracing, sampling, feedback
   experiment_comparison.py   # 08 - benchmark across configs
   tool_calls.py              # 09 - tool calling with AGENT/TOOL/CHAT_MODEL spans
+  prompt_management.py       # 10 - prompt registry, versioning, linked prompts
 ```
 
 Each module is self-contained with a `main()` entrypoint registered in `pyproject.toml`.
