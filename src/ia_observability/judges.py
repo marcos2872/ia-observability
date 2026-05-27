@@ -16,6 +16,9 @@ from mlflow.genai.scorers import Guidelines, scorer
 
 from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
 
+# Judge model via AI Gateway (necessario para modelos self-hosted)
+JUDGE_MODEL = f"gateway:/{MODEL_NAME}"
+
 
 # ---------------------------------------------------------------------------
 # Code-based scorers (tipo 4): logica puramente programatica
@@ -177,6 +180,7 @@ def main() -> None:
                     "Nao deve conter informacoes inventadas ou desatualizadas. "
                     "Deve usar terminologia correta."
                 ),
+                model=JUDGE_MODEL,
             ),
             Guidelines(
                 name="formatting",
@@ -185,6 +189,7 @@ def main() -> None:
                     "Para perguntas 'como fazer', deve usar lista numerada ou bullets. "
                     "Nao deve ser um bloco de texto corrido sem estrutura."
                 ),
+                model=JUDGE_MODEL,
             ),
             # --- Code-based scorers ---
             response_length_check,

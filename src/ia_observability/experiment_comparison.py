@@ -17,6 +17,9 @@ from mlflow.genai.scorers import Correctness, Guidelines, RelevanceToQuery
 
 from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
 
+# Judge model via AI Gateway
+JUDGE_MODEL = f"gateway:/{MODEL_NAME}"
+
 # ---------------------------------------------------------------------------
 # Dataset de benchmark (compartilhado entre todas as configuracoes)
 # ---------------------------------------------------------------------------
@@ -65,15 +68,17 @@ EVAL_DATASET = [
 
 # Scorers usados em todas as configuracoes (mesmos criterios = comparacao justa)
 SCORERS = [
-    Correctness(),
-    RelevanceToQuery(),
+    Correctness(model=JUDGE_MODEL),
+    RelevanceToQuery(model=JUDGE_MODEL),
     Guidelines(
         name="conciseness",
         guidelines="A resposta deve ter no maximo 3 frases. Respostas longas devem falhar.",
+        model=JUDGE_MODEL,
     ),
     Guidelines(
         name="portuguese",
         guidelines="A resposta DEVE estar em portugues brasileiro.",
+        model=JUDGE_MODEL,
     ),
 ]
 

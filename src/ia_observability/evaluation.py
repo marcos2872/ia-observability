@@ -20,6 +20,10 @@ from mlflow.genai.scorers import Correctness, Guidelines, RelevanceToQuery
 
 from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
 
+# O judge model precisa ser no formato "gateway:/<model>" para usar o AI Gateway.
+# Sem isso, MLflow tenta usar "openai:/gpt-4.1-mini" (default) que requer OPENAI_API_KEY.
+JUDGE_MODEL = f"gateway:/{MODEL_NAME}"
+
 
 def get_eval_dataset() -> list[dict]:
     """Dataset de avaliacao com perguntas e fatos esperados.
@@ -126,18 +130,20 @@ def main() -> None:
         predict_fn=predict_fn,
         scorers=[
             # Verifica se os fatos esperados estao presentes na resposta
-            Correctness(),
+            Correctness(model=JUDGE_MODEL),
             # Verifica se a resposta e relevante a pergunta
-            RelevanceToQuery(),
+            RelevanceToQuery(model=JUDGE_MODEL),
             # Judge customizado: verifica se resposta esta em portugues
             Guidelines(
                 name="resposta_em_portugues",
                 guidelines="A resposta DEVE estar em portugues. Nao pode estar em ingles.",
+                model=JUDGE_MODEL,
             ),
             # Judge customizado: verifica concisao
             Guidelines(
                 name="conciseness",
                 guidelines="A resposta deve ter no maximo 3 frases. Respostas longas devem falhar.",
+                model=JUDGE_MODEL,
             ),
         ],
     )
