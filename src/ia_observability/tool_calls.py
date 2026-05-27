@@ -13,6 +13,7 @@ Referencia: https://mlflow.org/docs/latest/genai/tracing/
 """
 
 import json
+import time
 
 import mlflow
 from mlflow.entities import SpanType
@@ -72,6 +73,20 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_inventory",
+            "description": "Consulta o estoque disponivel de um produto.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "product": {"type": "string", "description": "Nome do produto"},
+                },
+                "required": ["product"],
+            },
+        },
+    },
 ]
 
 
@@ -123,11 +138,19 @@ def calculate(expression: str) -> dict:
         return {"error": str(e), "expression": expression}
 
 
+def check_inventory(product: str) -> dict:
+    """Simula consulta a API de estoque que falha (timeout/erro)."""
+    # Simula latencia alta seguida de falha
+    time.sleep(2.5)
+    raise TimeoutError(f"Timeout ao consultar estoque do produto '{product}' — API indisponivel")
+
+
 # Mapeamento nome -> funcao
 TOOL_REGISTRY = {
     "get_weather": get_weather,
     "search_docs": search_docs,
     "calculate": calculate,
+    "check_inventory": check_inventory,
 }
 
 
@@ -193,15 +216,43 @@ def agent_with_tools(user_message: str) -> str:
             except json.JSONDecodeError:
                 fn_args = {"raw": tool_call.function.arguments}
 
-            # Span TOOL para cada execucao
+            # Span TOOL para cada execucao — com medicao de latencia
             with mlflow.start_span(name=f"tool:{fn_name}", span_type=SpanType.TOOL) as tool_span:
                 tool_span.set_inputs({"function": fn_name, "arguments": fn_args})
                 tool_fn = TOOL_REGISTRY.get(fn_name)
+
+                t0 = time.perf_counter()
                 if tool_fn:
-                    result = tool_fn(**fn_args)
+                    try:
+                        result = tool_fn(**fn_args)
+                    except Exception as exc:
+                        # Captura falha da tool — registra erro no span
+                        latency_ms = (time.perf_counter() - t0) * 1000
+                        tool_span.set_attribute("tool.latency_ms", latency_ms)
+                        tool_span.set_attribute("tool.error", True)
+                        tool_span.set_attribute("tool.error_type", type(exc).__name__)
+                        tool_span.set_status("ERROR")
+                        result = {
+                            "error": f"{type(exc).__name__}: {exc}",
+                            "function": fn_name,
+                        }
+                        tool_span.set_outputs(result)
+                        # Continua o loop — envia erro como resultado ao modelo
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": json.dumps(result, ensure_ascii=False),
+                        })
+                        print(f"    [FALHA] tool:{fn_name} — {exc} ({latency_ms:.0f}ms)")
+                        continue
                 else:
                     result = {"error": f"Tool '{fn_name}' nao encontrada no registry"}
+
+                latency_ms = (time.perf_counter() - t0) * 1000
+                tool_span.set_attribute("tool.latency_ms", latency_ms)
+                tool_span.set_attribute("tool.error", False)
                 tool_span.set_outputs(result)
+                print(f"    [OK] tool:{fn_name} ({latency_ms:.1f}ms)")
 
             # Adiciona resultado da tool ao historico de mensagens
             messages.append({
@@ -263,6 +314,13 @@ def demo_calculation() -> None:
     print(f"  Resposta: {result[:300]}\n")
 
 
+def demo_tool_failure() -> None:
+    """Demonstra falha de tool (timeout) com erro registrado no span."""
+    print("  Pergunta: 'Verifique o estoque do produto Notebook Dell XPS'")
+    result = agent_with_tools("Verifique o estoque do produto Notebook Dell XPS")
+    print(f"  Resposta: {result[:300]}\n")
+
+
 # ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
@@ -293,11 +351,18 @@ def main() -> None:
     print("=" * 60)
     demo_calculation()
 
+    print("\n" + "=" * 60)
+    print("DEMO 5: Falha de tool (timeout simulado)")
+    print("=" * 60)
+    demo_tool_failure()
+
     print("\n" + "-" * 60)
     print("Abra o MLflow UI -> Experiment '09-tool-calls' para ver:")
     print("  - Aba 'Tool calls' com metricas de uso de tools")
     print("  - Trace tree: AGENT > CHAT_MODEL > TOOL(s) > CHAT_MODEL")
     print("  - Inputs/outputs detalhados de cada tool execution")
+    print("  - Atributos 'tool.latency_ms' e 'tool.error' em cada span TOOL")
+    print("  - Span com status ERROR na demo de falha (check_inventory)")
     print("-" * 60)
 
 
