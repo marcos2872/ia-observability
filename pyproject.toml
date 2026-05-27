@@ -19,6 +19,7 @@ judges = "ia_observability.judges:main"
 versioning = "ia_observability.version_tracking:main"
 monitoring = "ia_observability.production_monitoring:main"
 benchmark = "ia_observability.experiment_comparison:main"
+toolcalls = "ia_observability.tool_calls:main"
 
 [build-system]
 requires = ["hatchling"]

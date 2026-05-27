@@ -16,6 +16,7 @@ Serve como referencia para integrar observabilidade em projetos futuros.
 | `version_tracking` | Versionamento com LoggedModel | `uv run versioning` |
 | `production_monitoring` | Async logging, sampling, feedback | `uv run monitoring` |
 | `experiment_comparison` | Comparacao de configs lado a lado | `uv run benchmark` |
+| `tool_calls` | Tool calling com observabilidade (AGENT/TOOL spans) | `uv run toolcalls` |
 
 ## Requisitos
 
@@ -29,10 +30,11 @@ Serve como referencia para integrar observabilidade em projetos futuros.
 # Instalar dependencias
 uv sync
 
-# Configurar .env (ja existe no projeto)
+# Configurar .env (copie de .env.example)
 # mlflow_url=http://<seu-server>:5000/
 # mlflow_openia_url=http://<seu-server>:5000/gateway/mlflow/v1
 # mlflow_model=gemma4-e4b
+# mlflow_judge_model=gemma4-e4b  # modelo para LLM judges (pode ser diferente)
 ```
 
 ## Executar
@@ -50,6 +52,7 @@ make judges      # Demo de LLM judges customizados
 make versioning  # Demo de version tracking com LoggedModel
 make monitoring  # Demo de producao (async, sampling, feedback)
 make benchmark   # Benchmark comparativo de configuracoes
+make toolcalls   # Demo de tool calling com observabilidade
 make all         # Executa todos os modulos em sequencia
 ```
 
@@ -82,7 +85,8 @@ src/ia_observability/
 ├── judges.py              # Custom Guidelines judges + code-based scorers
 ├── version_tracking.py    # LoggedModel, versionamento por git/config
 ├── production_monitoring.py # Async, sampling, feedback collection
-└── experiment_comparison.py # Benchmark comparativo de configuracoes
+├── experiment_comparison.py # Benchmark comparativo de configuracoes
+└── tool_calls.py          # Tool calling com spans AGENT/TOOL/CHAT_MODEL
 ```
 
 ## Stack
