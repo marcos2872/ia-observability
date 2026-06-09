@@ -9,6 +9,11 @@ O MLflow rastreia automaticamente o fluxo completo de tool calling:
 
 A aba 'Tool calls' no MLflow UI mostra metricas agregadas de uso de tools.
 
+Nota didatica: aqui implementamos o loop de tool calling MANUALMENTE
+(criando spans SpanType.TOOL, medindo latencia e tratando erros por tool).
+O modulo `langchain_agent.py` mostra a versao AUTOMATICA equivalente, onde
+o LangChain gerencia o loop e o autolog cria os spans sozinho.
+
 Referencia: https://mlflow.org/docs/latest/genai/tracing/
 """
 

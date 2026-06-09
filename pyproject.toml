@@ -26,6 +26,8 @@ benchmark = "ia_observability.experiment_comparison:main"
 toolcalls = "ia_observability.tool_calls:main"
 prompts = "ia_observability.prompt_management:main"
 langchain-agent = "ia_observability.langchain_agent:main"
+datasets = "ia_observability.datasets_demo:main"
+prompt-opt = "ia_observability.prompt_optimization:main"
 
 [build-system]
 requires = ["hatchling"]

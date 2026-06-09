@@ -8,6 +8,11 @@ Funcionalidades demonstradas:
 - Conversa multi-turn com historico
 - Query de traces por sessao/usuario
 
+Nota didatica: aqui o historico e a sessao sao gerenciados MANUALMENTE
+(voce controla a lista de mensagens e o session_id). O modulo
+`langchain_agent.py` mostra a versao AUTOMATICA equivalente, onde o
+LangChain + MemorySaver cuidam disso.
+
 Referencia: https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/
 """
 

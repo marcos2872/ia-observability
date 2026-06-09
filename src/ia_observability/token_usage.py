@@ -22,21 +22,40 @@ CUSTOM_INPUT_COST_PER_TOKEN = 0.000001  # $1.00 / 1M input tokens
 CUSTOM_OUTPUT_COST_PER_TOKEN = 0.000002  # $2.00 / 1M output tokens
 
 
-def _set_cost_on_current_span(usage) -> None:
-    """Seta custo customizado no span ativo baseado em token usage do response.
+def _set_usage_and_cost(span, usage) -> None:
+    """Seta token usage E custo customizado em um span.
 
-    Padrao recomendado para modelos self-hosted sem pricing no MLflow.
-    Deve ser chamado dentro de um contexto com span ativo (decorator ou context manager).
+    Padrao recomendado para modelos self-hosted sem pricing
+    registrado no MLflow: o custo precisa ser calculado e setado manualmente
+    a partir do token count retornado pelo modelo.
+
+    Centralizar essa logica aqui evita duplicacao e garante que todos os
+    spans sejam atribuidos da mesma forma.
+
+    Args:
+        span: Span ativo (de @mlflow.trace ou mlflow.start_span).
+        usage: Objeto usage do response OpenAI (prompt_tokens, etc.).
     """
-    if not usage:
+    if not span or not usage:
         return
-    span = mlflow.get_current_active_span()
-    if not span:
-        return
+
     input_tokens = usage.prompt_tokens or 0
     output_tokens = usage.completion_tokens or 0
+    total_tokens = usage.total_tokens or (input_tokens + output_tokens)
+
     input_cost = input_tokens * CUSTOM_INPUT_COST_PER_TOKEN
     output_cost = output_tokens * CUSTOM_OUTPUT_COST_PER_TOKEN
+
+    # Token usage no formato que o MLflow UI exibe na aba de tokens
+    span.set_attribute(
+        "mlflow.chat.tokenUsage",
+        {
+            "input_tokens": input_tokens,
+            "output_tokens": output_tokens,
+            "total_tokens": total_tokens,
+        },
+    )
+    # Custo no formato que o MLflow UI exibe no "Cost Breakdown"
     span.set_attribute(
         "mlflow.llm.cost",
         {
@@ -70,27 +89,8 @@ def demo_automatic_token_tracking() -> None:
                 model=MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
             )
-            # Seta cost no span pai (o auto-tracing ja cria span filho com usage)
-            usage = response.usage
-            if usage:
-                input_cost = usage.prompt_tokens * CUSTOM_INPUT_COST_PER_TOKEN
-                output_cost = usage.completion_tokens * CUSTOM_OUTPUT_COST_PER_TOKEN
-                span.set_attribute(
-                    "mlflow.llm.cost",
-                    {
-                        "input_cost": input_cost,
-                        "output_cost": output_cost,
-                        "total_cost": input_cost + output_cost,
-                    },
-                )
-                span.set_attribute(
-                    "mlflow.chat.tokenUsage",
-                    {
-                        "input_tokens": usage.prompt_tokens,
-                        "output_tokens": usage.completion_tokens,
-                        "total_tokens": usage.total_tokens,
-                    },
-                )
+            # Seta token usage + custo no span (modelo self-hosted)
+            _set_usage_and_cost(span, response.usage)
 
     # Flush async logging antes de buscar traces
     mlflow.flush_trace_async_logging()
@@ -147,19 +147,7 @@ def demo_span_level_usage() -> None:
                     {"role": "user", "content": "Como funciona o tracing em MLflow?"},
                 ],
             )
-            if classification.usage:
-                u = classification.usage
-                span.set_attribute("mlflow.chat.tokenUsage", {
-                    "input_tokens": u.prompt_tokens,
-                    "output_tokens": u.completion_tokens,
-                    "total_tokens": u.total_tokens,
-                })
-                span.set_attribute("mlflow.llm.cost", {
-                    "input_cost": u.prompt_tokens * CUSTOM_INPUT_COST_PER_TOKEN,
-                    "output_cost": u.completion_tokens * CUSTOM_OUTPUT_COST_PER_TOKEN,
-                    "total_cost": (u.prompt_tokens * CUSTOM_INPUT_COST_PER_TOKEN
-                                   + u.completion_tokens * CUSTOM_OUTPUT_COST_PER_TOKEN),
-                })
+            _set_usage_and_cost(span, classification.usage)
         topic = classification.choices[0].message.content
 
         # Passo 2: Resposta baseada na classificacao
@@ -171,19 +159,7 @@ def demo_span_level_usage() -> None:
                     {"role": "user", "content": "Como funciona o tracing em MLflow?"},
                 ],
             )
-            if answer.usage:
-                u = answer.usage
-                span.set_attribute("mlflow.chat.tokenUsage", {
-                    "input_tokens": u.prompt_tokens,
-                    "output_tokens": u.completion_tokens,
-                    "total_tokens": u.total_tokens,
-                })
-                span.set_attribute("mlflow.llm.cost", {
-                    "input_cost": u.prompt_tokens * CUSTOM_INPUT_COST_PER_TOKEN,
-                    "output_cost": u.completion_tokens * CUSTOM_OUTPUT_COST_PER_TOKEN,
-                    "total_cost": (u.prompt_tokens * CUSTOM_INPUT_COST_PER_TOKEN
-                                   + u.completion_tokens * CUSTOM_OUTPUT_COST_PER_TOKEN),
-                })
+            _set_usage_and_cost(span, answer.usage)
         return answer.choices[0].message.content
 
     result = multi_step_pipeline()

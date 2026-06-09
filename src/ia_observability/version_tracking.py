@@ -35,26 +35,32 @@ def run_version(version_name: str, system_prompt: str, temperature: float) -> No
         "O que e evaluation-driven development?",
     ]
 
+    # set_active_model vincula todos os traces gerados neste bloco a uma
+    # versao nomeada (LoggedModel). No MLflow UI, esses traces aparecem
+    # agrupados sob o modelo, permitindo comparar versoes lado a lado.
     with mlflow.set_active_model(name=version_name):
-        # Registra parametros da versao como tags
-        mlflow.update_current_trace(
-            tags={
-                "app.system_prompt": system_prompt[:50],
-                "app.temperature": str(temperature),
-                "app.model": MODEL_NAME,
-            },
-        ) if False else None  # Tags sao por trace, nao por model
-
         for q in questions:
-            response = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": q},
-                ],
-                temperature=temperature,
-            )
-            answer = response.choices[0].message.content
+            # Envolvemos a chamada num span para ter um trace ATIVO — assim
+            # podemos aplicar tags da versao via update_current_trace (a
+            # chamada do autolog vira um span filho deste).
+            with mlflow.start_span(name="ask"):
+                mlflow.update_current_trace(
+                    tags={
+                        "app.version": version_name,
+                        "app.temperature": str(temperature),
+                        "app.model": MODEL_NAME,
+                    },
+                )
+                response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": q},
+                    ],
+                    temperature=temperature,
+                )
+                answer = response.choices[0].message.content
+
             print(f"    Q: {q}")
             print(f"    A: {answer[:100]}...\n")
 
