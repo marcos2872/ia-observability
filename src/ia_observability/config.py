@@ -178,6 +178,32 @@ def get_client() -> OpenAI:
     )
 
 
+def patch_litellm_max_tokens(default_max_tokens: int = 4096) -> None:
+    """Garante um max_tokens minimo nas chamadas do litellm.
+
+    O litellm e usado pela reflexao do GEPA e pelos judges. O GEPA chama
+    `litellm.completion(...)` SEM max_tokens (gepa/api.py), entao usa o default
+    baixo do gateway/modelo e o prompt candidato gerado pode TRUNCAR no meio
+    (o prompt otimizado sai cortado). Aqui injetamos um teto generoso quando a
+    chamada nao especifica um. Nao afeta o predict_fn (que usa o SDK OpenAI direto).
+    """
+    try:
+        import litellm
+    except ImportError:
+        return
+
+    _original = litellm.completion
+
+    def _patched(*args, **kwargs):
+        kwargs.setdefault("max_tokens", default_max_tokens)
+        return _original(*args, **kwargs)
+
+    litellm.completion = _patched
+
+
 # Torna o parsing dos judges tolerante a markdown/cercas/JSON extra — util com
 # modelos de judge menores que nem sempre devolvem JSON estrito.
 patch_judge_json_parsing()
+# Evita que a reflexao do GEPA (e os judges) trunquem a saida por falta de
+# max_tokens — o prompt otimizado vinha cortado no meio.
+patch_litellm_max_tokens()

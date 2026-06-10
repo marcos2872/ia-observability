@@ -233,7 +233,9 @@ def demo_gepa_optimization() -> None:
 
     optimized = result.optimized_prompts[0]
     print(f"\n  System prompt DEPOIS ({optimized.uri}):")
-    print(f"    {optimized.template[:300]}...")
+    print("  " + "-" * 56)
+    print(optimized.template)
+    print("  " + "-" * 56)
     print(
         f"  Acuracia inicial -> final: "
         f"{result.initial_eval_score} -> {result.final_eval_score}"
@@ -283,7 +285,9 @@ def demo_metaprompt_optimization() -> None:
 
     optimized = result.optimized_prompts[0]
     print(f"\n  System prompt DEPOIS ({optimized.uri}):")
-    print(f"    {optimized.template[:300]}...")
+    print("  " + "-" * 56)
+    print(optimized.template)
+    print("  " + "-" * 56)
 
 
 # ---------------------------------------------------------------------------
