@@ -1,11 +1,16 @@
 """Demonstracao de Prompt Optimization: otimizar o SYSTEM prompt automaticamente.
 
 O MLflow otimiza um prompt registrado aprendendo com dados de avaliacao e
-metricas (scorers). Aqui otimizamos o SYSTEM prompt — que controla o
-comportamento/qualidade das respostas — mantendo a pergunta do usuario fixa.
+metricas (scorers). Aqui otimizamos o SYSTEM prompt de um CLASSIFICADOR de
+mensagens de suporte (DUVIDA, BUG, RECLAMACAO, ELOGIO, SOLICITACAO).
+
+Por que classificacao? E um cenario onde a melhora fica EVIDENTE: com o system
+prompt vago ("Voce e um assistente.") o modelo responde em prosa e nem conhece
+as categorias -> score baixo. A otimizacao ensina o modelo, via system prompt, a
+escolher a categoria certa e responder APENAS o rotulo -> score alto.
 
 Padrao:
-    predict_fn(topic) -> usa o system prompt (otimizavel) + mensagem do usuario
+    predict_fn(mensagem) -> usa o system prompt (otimizavel) + texto a classificar
     optimize_prompts(predict_fn, train_data, prompt_uris, optimizer, scorers)
 
 Dois algoritmos sao demonstrados:
@@ -14,10 +19,10 @@ Dois algoritmos sao demonstrados:
 - Metaprompting (MetaPromptOptimizer): reestrutura o prompt seguindo boas
   praticas. Funciona em zero-shot (sem dados nem scorers).
 
-Sobre os scorers: usamos um scorer CODE-BASED (deterministico) que mede a
-cobertura de termos tecnicos esperados. Vantagem didatica: nao depende de um
-LLM judge (que, com modelos pequenos, costuma devolver JSON fora do schema e
-quebrar a otimizacao). Para usar um LLM judge, veja o comentario em SCORERS.
+Sobre os scorers: usamos um scorer CODE-BASED (deterministico) que mede o acerto
+da classificacao. Vantagem didatica: nao depende de um LLM judge (que, com
+modelos pequenos, costuma devolver JSON fora do schema e quebrar a otimizacao).
+Para usar um LLM judge, veja o comentario em SCORERS.
 
 A reflexao do GEPA usa 'openai:/' do litellm apontando para o AI Gateway
 (OpenAI-compatible), configurado em config.py.
@@ -29,6 +34,7 @@ import os
 import unicodedata
 
 import mlflow
+from mlflow.entities.assessment import Feedback
 from mlflow.genai.optimize import GepaPromptOptimizer, MetaPromptOptimizer
 from mlflow.genai.scorers import scorer
 
@@ -46,85 +52,108 @@ PROMPT_NAME = "observability-system-prompt"
 # Orcamento do GEPA: numero MAXIMO de "metric calls" (avaliacoes).
 #   1 metric call = 1 inferencia (predict_fn) + 1 avaliacao do scorer.
 # O GEPA NAO tem um numero fixo de rodadas: gasta esse orcamento entre a
-# avaliacao baseline do prompt inicial e as rodadas de reflexao+mutacao (gerar
-# um prompt candidato e reavaliar), parando quando o orcamento acaba.
-# Mais orcamento = mais rodadas = melhor resultado, porem mais lento.
-GEPA_MAX_METRIC_CALLS: int = int(os.getenv("GEPA_MAX_METRIC_CALLS", "6"))
+# avaliacao baseline do prompt inicial e as rodadas de reflexao+mutacao, parando
+# quando o orcamento acaba.
+# IMPORTANTE: o baseline ja consome ~1 chamada por exemplo do dataset. Para
+# sobrar orcamento para varias rodadas de reflexao, use budget >> tamanho do
+# dataset (ex: dataset de 5 -> budget 30+). Mais orcamento = mais rodadas.
+# A QUALIDADE da melhora tambem depende do reflection_model (OPTIMIZER_JUDGE_MODEL):
+# modelos pequenos/locais geram candidatos fracos ou vazios; um modelo forte
+# (ex: GPT-4/5) melhora muito. Para resultado rapido e confiavel, veja a Demo 2
+# (Metaprompting), que reescreve o prompt em 1 chamada com guidelines explicitas.
+GEPA_MAX_METRIC_CALLS: int = int(os.getenv("GEPA_MAX_METRIC_CALLS", "30"))
 
 # SYSTEM prompt propositalmente fraco/vago — a otimizacao deve melhora-lo.
-# Nao tem variaveis: o {{topic}} vai na mensagem do usuario (fixa).
+# Nao tem variaveis: a mensagem a classificar vai na mensagem do usuario.
 WEAK_SYSTEM_PROMPT = "Voce e um assistente."
 
-# Dataset de treino: inputs (kwargs do predict_fn) + expectations (ground truth).
-# 'keywords' = termos tecnicos que uma boa resposta deve cobrir. O scorer
-# code-based mede a fracao desses termos presentes (ignorando acento/caixa).
-# Dataset mais rico = sinal mais forte para a otimizacao melhorar o prompt.
+# Tarefa: classificar mensagens de suporte em UMA categoria. E um cenario
+# classico de prompt optimization: com o prompt vago o modelo responde em prosa
+# (formato errado -> score baixo); o prompt otimizado aprende a devolver apenas
+# o rotulo correto (score alto). Por isso a melhora fica evidente.
+LABELS = ["DUVIDA", "BUG", "RECLAMACAO", "ELOGIO", "SOLICITACAO"]
+
+# Dataset de treino: inputs (mensagem do usuario) + expectations (rotulo correto).
+# Mantido pequeno (1-2 por categoria) de proposito: o baseline do GEPA custa ~1
+# chamada por exemplo, entao um dataset enxuto deixa mais orcamento para as
+# rodadas de reflexao (e roda mais rapido).
 TRAIN_DATA = [
     {
-        "inputs": {"topic": "tracing em aplicacoes LLM"},
-        "expectations": {
-            "keywords": ["span", "trace", "latencia", "input", "output", "instrumentacao"]
-        },
+        "inputs": {"mensagem": "Como faco para exportar meus traces para CSV?"},
+        "expectations": {"label": "DUVIDA"},
     },
     {
-        "inputs": {"topic": "MLflow Prompt Registry"},
-        "expectations": {
-            "keywords": ["versionar", "prompt", "registro", "rastreabilidade", "template"]
-        },
+        "inputs": {"mensagem": "O dashboard trava quando abro o experimento 42."},
+        "expectations": {"label": "BUG"},
     },
     {
-        "inputs": {"topic": "observabilidade em sistemas de IA"},
-        "expectations": {
-            "keywords": ["latencia", "tokens", "custo", "producao", "metricas", "qualidade"]
+        "inputs": {
+            "mensagem": "Ja e a terceira vez que perco meus dados, inaceitavel."
         },
+        "expectations": {"label": "RECLAMACAO"},
     },
     {
-        "inputs": {"topic": "LLM-as-a-judge para avaliacao"},
-        "expectations": {
-            "keywords": ["judge", "avaliacao", "criterio", "score", "rationale"]
-        },
+        "inputs": {"mensagem": "Parabens, a nova UI de tracing ficou excelente!"},
+        "expectations": {"label": "ELOGIO"},
     },
     {
-        "inputs": {"topic": "deteccao de alucinacao em LLMs"},
-        "expectations": {
-            "keywords": ["alucinacao", "factualidade", "groundedness", "contexto", "evidencia"]
-        },
-    },
-    {
-        "inputs": {"topic": "controle de custo de tokens em producao"},
-        "expectations": {
-            "keywords": ["tokens", "custo", "cache", "amostragem", "throughput"]
-        },
+        "inputs": {"mensagem": "Seria otimo poder filtrar traces por custo de tokens."},
+        "expectations": {"label": "SOLICITACAO"},
     },
 ]
 
 
 # ---------------------------------------------------------------------------
-# Scorer code-based: cobertura de termos tecnicos (deterministico, sem judge)
+# Scorer code-based: acerto da classificacao (deterministico, sem judge)
 # ---------------------------------------------------------------------------
 
 
 def _normalize(text: str) -> str:
-    """Remove acentos e baixa a caixa, para comparacao robusta de termos."""
-    nfkd = unicodedata.normalize("NFKD", text.lower())
+    """Remove acentos, baixa a caixa e tira pontuacao das bordas."""
+    nfkd = unicodedata.normalize("NFKD", (text or "").lower())
     return "".join(c for c in nfkd if not unicodedata.combining(c))
 
 
 @scorer
-def keyword_coverage(outputs, expectations) -> float:
-    """Fracao (0..1) dos termos tecnicos esperados presentes na resposta.
+def label_accuracy(outputs, expectations) -> Feedback:
+    """Mede o acerto da classificacao e EXPLICA o objetivo (deterministico).
 
-    Scorer deterministico: nao usa LLM, entao e rapido e nunca quebra por
-    JSON malformado. A comparacao ignora acento e caixa (ex: 'latencia' casa
-    com 'Latencia' e 'latencia'). O GEPA tenta MAXIMIZAR essa metrica,
-    empurrando o system prompt para gerar respostas mais tecnicas e completas.
+    Retorna um Feedback com value (numerico) e rationale (texto). O rationale e
+    fundamental: o GEPA usa esses rationales na reflexao para entender O QUE esta
+    sendo avaliado. Sem explicar o objetivo, o reflection model pode interpretar
+    as categorias como "tipos de atendimento" e escrever um prompt de assistente
+    prestativo (em vez de um classificador) — foi o que aconteceu sem feedback.
+
+    Pontuacao:
+    - 1.0 se a saida for EXATAMENTE o rotulo esperado;
+    - 0.5 se o rotulo certo aparece no meio de texto (categoria certa, formato
+      errado) — gradiente para o GEPA primeiro acertar a categoria;
+    - 0.0 se errou a categoria.
     """
-    keywords = expectations.get("keywords", [])
-    if not keywords:
-        return 1.0
-    text = _normalize(outputs or "")
-    hits = sum(1 for kw in keywords if _normalize(kw) in text)
-    return hits / len(keywords)
+    expected = _normalize(expectations.get("label", "")).strip()
+    got = _normalize(outputs).strip()
+
+    if got == expected:
+        return Feedback(
+            value=1.0,
+            rationale=f"Correto: respondeu exatamente o rotulo '{expected.upper()}'.",
+        )
+    if expected and expected in got.split():
+        return Feedback(
+            value=0.5,
+            rationale=(
+                f"Categoria correta ({expected.upper()}), mas a resposta deve conter "
+                "APENAS o rotulo em MAIUSCULAS, sem explicacao nem texto adicional."
+            ),
+        )
+    return Feedback(
+        value=0.0,
+        rationale=(
+            "Incorreto. A tarefa e CLASSIFICAR a mensagem do usuario em exatamente "
+            f"UM destes rotulos: {', '.join(LABELS)}. A resposta deve ser SOMENTE o "
+            f"rotulo em MAIUSCULAS, sem explicacao. Esperado: '{expected.upper()}'."
+        ),
+    )
 
 
 # Alternativa com LLM judge (requer um modelo de judge capaz de seguir o schema
@@ -132,7 +161,7 @@ def keyword_coverage(outputs, expectations) -> float:
 #   from mlflow.genai.scorers import Correctness
 #   from ia_observability.config import JUDGE_MODEL
 #   scorers=[Correctness(model=JUDGE_MODEL)]
-# e use 'expected_facts' (lista de fatos) no lugar de 'keywords' no TRAIN_DATA.
+# e use 'expected_response' (o rotulo) no lugar de 'label' no TRAIN_DATA.
 
 
 # URI da versao exata do prompt em uso (setado por _register_weak_prompt()).
@@ -150,19 +179,23 @@ def _register_weak_prompt() -> str:
     return _PROMPT_URI
 
 
-def predict_fn(topic: str) -> str:
+def predict_fn(mensagem: str) -> str:
     """Funcao de predicao avaliada pela otimizacao.
 
     Carrega o SYSTEM prompt do registry (o template que esta sendo otimizado) e
-    o usa como mensagem de sistema. A pergunta do usuario e fixa e carrega o
-    topico. A otimizacao testa diferentes versoes do system prompt aqui.
+    o usa como mensagem de sistema; a mensagem do usuario e o texto a classificar.
+
+    Com o system prompt vago, o modelo responde em prosa (formato errado) e nem
+    sempre sabe as categorias validas -> score baixo. A otimizacao deve ensinar o
+    modelo, via system prompt, a escolher a categoria certa e responder APENAS o
+    rotulo. E justamente o system prompt que carrega esse conhecimento.
     """
     system_prompt = mlflow.genai.load_prompt(_PROMPT_URI).template
     completion = get_client().chat.completions.create(
         model=MODEL_NAME,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Explique de forma tecnica: {topic}"},
+            {"role": "user", "content": mensagem},
         ],
     )
     return completion.choices[0].message.content
@@ -195,14 +228,16 @@ def demo_gepa_optimization() -> None:
             max_metric_calls=GEPA_MAX_METRIC_CALLS,
             display_progress_bar=True,
         ),
-        scorers=[keyword_coverage],
+        scorers=[label_accuracy],
     )
 
     optimized = result.optimized_prompts[0]
     print(f"\n  System prompt DEPOIS ({optimized.uri}):")
     print(f"    {optimized.template[:300]}...")
-    print(f"  Score (cobertura) inicial -> final: "
-          f"{result.initial_eval_score} -> {result.final_eval_score}")
+    print(
+        f"  Acuracia inicial -> final: "
+        f"{result.initial_eval_score} -> {result.final_eval_score}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -228,8 +263,11 @@ def demo_metaprompt_optimization() -> None:
         optimizer=MetaPromptOptimizer(
             reflection_model=OPTIMIZER_JUDGE_MODEL,
             guidelines=(
-                "O system prompt e usado por um assistente tecnico de MLOps que "
-                "responde em portugues brasileiro, de forma tecnica e sem emojis."
+                "O system prompt e de um classificador de mensagens de suporte. "
+                "Ele deve instruir o modelo a classificar a mensagem do usuario em "
+                f"exatamente UMA destas categorias: {', '.join(LABELS)}. "
+                "A resposta deve conter APENAS o rotulo em maiusculas, sem explicacao, "
+                "pontuacao ou texto extra."
             ),
         ),
         scorers=[],
