@@ -262,12 +262,20 @@ def demo_metaprompt_optimization() -> None:
         prompt_uris=[prompt_uri],
         optimizer=MetaPromptOptimizer(
             reflection_model=OPTIMIZER_JUDGE_MODEL,
+            # Temperatura baixa: saida concisa e JSON valido. Temperatura nao e
+            # um botao de "qualidade" — e de aleatoriedade. Para reescrever um
+            # prompt que segue um schema rigido, temp baixa da uma saida mais
+            # focada e confiavel. Com a padrao (1.0) o modelo diverga, gera um
+            # prompt enorme e trunca o JSON -> a otimizacao falha e devolve o
+            # original. 0.3 e um meio-termo (foco sem divagar).
+            lm_kwargs={"temperature": 0.3, "max_tokens": 8192},
             guidelines=(
                 "O system prompt e de um classificador de mensagens de suporte. "
                 "Ele deve instruir o modelo a classificar a mensagem do usuario em "
                 f"exatamente UMA destas categorias: {', '.join(LABELS)}. "
                 "A resposta deve conter APENAS o rotulo em maiusculas, sem explicacao, "
-                "pontuacao ou texto extra."
+                "pontuacao ou texto extra. Escreva um prompt CONCISO (poucas linhas), "
+                "sem exemplos longos."
             ),
         ),
         scorers=[],
