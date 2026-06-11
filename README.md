@@ -4,6 +4,27 @@ Projeto **didatico** de observabilidade e benchmark de LLM usando [MLflow GenAI]
 
 Cada modulo e um exemplo **autocontido** de uma funcionalidade do MLflow, do basico (tracing) ao avancado (otimizacao de prompts). Os modelos sao servidos pelo **MLflow AI Gateway** (endpoint compativel com OpenAI).
 
+## Documentacao
+
+- 📖 [Como usar](docs/como-usar.md) — setup, `.env`, rodar as demos e ver no MLflow UI.
+- 🎓 [Workshop de Observabilidade em IA](docs/workshop-observabilidade-ia.md) — material de apresentacao (1h) com os conceitos por tras das demos.
+
+## Por que observabilidade em IA?
+
+LLMs sao **nao-deterministicos**, **caixa-preta** e falham de forma **silenciosa**
+(alucinam com HTTP 200). Em pipelines com RAG + tools + multiplas chamadas ao modelo,
+quando o resultado final esta errado, *qual etapa falhou?* Observabilidade responde isso
+capturando o que acontece em cada passo. Os 4 pilares:
+
+| Pilar | O que resolve | Demos |
+|-------|---------------|-------|
+| **Tracing** | Ver inputs/outputs/latencia de cada passo | `tracing`, `toolcalls`, `langchain-agent` |
+| **Custo & Tokens** | Quanto cada chamada consome e custa | `tokens` |
+| **Avaliacao** | Medir a *qualidade* das respostas | `evaluation`, `judges` |
+| **Producao** | Operar em escala (sampling, feedback, sessions) | `sessions`, `monitoring` |
+
+> Detalhes, exemplos de codigo e roteiro de apresentacao em [docs/workshop-observabilidade-ia.md](docs/workshop-observabilidade-ia.md).
+
 ## Funcionalidades Demonstradas
 
 | # | Modulo | Funcionalidade | Comando |
