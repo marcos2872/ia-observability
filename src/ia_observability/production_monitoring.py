@@ -6,15 +6,23 @@ Em producao, e essencial:
 3. Coletar feedback de usuarios para melhorar qualidade
 4. Usar sampling diferenciado por criticidade da operacao
 
+Este modulo reutiliza o agente LangChain do modulo 11 (build_agent/agent_invoke)
+e foca apenas em COMO operar isso em producao. Detalhe importante: com
+mlflow.langchain.autolog() os spans sao gerados automaticamente, entao o
+controle de sampling vai no WRAPPER da invocacao do agente (funcao decorada
+com @mlflow.trace), e nao em funcoes proprias instrumentadas manualmente.
+
 Referencia: https://mlflow.org/docs/latest/genai/tracing/prod-tracing/
 """
 
 import os
+import uuid
 
 import mlflow
 from mlflow.entities import AssessmentSource
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
+from ia_observability.langchain_agent import agent_invoke, build_agent
+from ia_observability.config import setup_mlflow
 
 
 def show_production_config() -> None:
@@ -42,37 +50,33 @@ def show_production_config() -> None:
 
 # ---------------------------------------------------------------------------
 # Per-endpoint sampling: diferentes taxas por criticidade
+#
+# Com autolog do LangChain, os spans (AGENT/CHAT_MODEL/TOOL) sao gerados
+# automaticamente. Para controlar sampling por criticidade, envolvemos a
+# chamada do agente numa funcao decorada com @mlflow.trace e definimos
+# sampling_ratio_override. O trace raiz (e seus filhos via autolog) segue
+# a taxa do override.
 # ---------------------------------------------------------------------------
 
 
 @mlflow.trace(sampling_ratio_override=1.0)
-def critical_operation(question: str) -> str:
+def critical_agent_call(agent, query: str, user_id: str, session_id: str) -> str:
     """Operacao critica - SEMPRE traced (100% sampling).
 
     Use sampling_ratio_override=1.0 para operacoes que precisam
     ser auditadas em 100% dos casos (ex: pagamentos, compliance).
     """
-    client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "user", "content": question}],
-    )
-    return response.choices[0].message.content
+    return agent_invoke(agent, query, user_id, session_id)
 
 
 @mlflow.trace(sampling_ratio_override=0.1)
-def high_volume_operation(question: str) -> str:
+def high_volume_agent_call(agent, query: str, user_id: str, session_id: str) -> str:
     """Operacao de alto volume - sampling reduzido (10%).
 
     Para endpoints de alto trafego, capture apenas uma amostra.
     Isso reduz custo de storage e processamento significativamente.
     """
-    client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[{"role": "user", "content": question}],
-    )
-    return response.choices[0].message.content
+    return agent_invoke(agent, query, user_id, session_id)
 
 
 # ---------------------------------------------------------------------------
@@ -80,7 +84,7 @@ def high_volume_operation(question: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def demo_feedback_collection() -> None:
+def demo_feedback_collection(agent) -> None:
     """Demonstra coleta de feedback humano em traces.
 
     Em producao, feedback pode vir de:
@@ -93,16 +97,12 @@ def demo_feedback_collection() -> None:
     - Identificar patterns de falha
     - Treinar/fine-tunar modelos
     """
-    client = get_client()
+    session_id = f"feedback-{uuid.uuid4().hex[:8]}"
 
-    # Gera uma resposta trackeada
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "user", "content": "O que e MLflow tracing?"},
-        ],
+    # Gera uma resposta trackeada via agente LangChain (100% sampling)
+    answer = critical_agent_call(
+        agent, "O que e MLflow tracing?", "reviewer-marcos", session_id
     )
-    answer = response.choices[0].message.content
     print(f"  Resposta gerada: {answer[:100]}...")
 
     trace_id = mlflow.get_last_active_trace_id()
@@ -143,9 +143,12 @@ def demo_feedback_collection() -> None:
 
 
 def main() -> None:
-    """Executa demos de configuracao de producao."""
+    """Executa demos de configuracao de producao sobre um agente LangChain."""
     setup_mlflow("07-production-monitoring")
-    mlflow.openai.autolog()
+    mlflow.langchain.autolog()
+
+    # Reutiliza o agente do modulo 11 (tools + sessions)
+    agent = build_agent()
 
     print("=" * 60)
     print("CONFIGURACOES DE PRODUCAO")
@@ -155,16 +158,25 @@ def main() -> None:
     print("\n" + "=" * 60)
     print("DEMO 1: Operacao critica (100% sampling)")
     print("=" * 60)
-    result = critical_operation("Explique observabilidade de LLM em 1 frase.")
+    result = critical_agent_call(
+        agent,
+        "Explique observabilidade de LLM em 1 frase.",
+        "demo-user",
+        f"critical-{uuid.uuid4().hex[:8]}",
+    )
     print(f"  Resposta: {result[:120]}...")
 
     print("\n" + "=" * 60)
     print("DEMO 2: Operacoes de alto volume (10% sampling)")
     print("=" * 60)
-    traced_count = 0
     total = 10
     for i in range(total):
-        high_volume_operation(f"Pergunta de alto volume #{i+1}: O que e MLOps?")
+        high_volume_agent_call(
+            agent,
+            f"Pergunta de alto volume #{i+1}: O que e MLOps?",
+            "demo-user",
+            f"high-volume-{uuid.uuid4().hex[:8]}",
+        )
     print(f"  {total} chamadas feitas (apenas ~10% serao traced)")
 
     # Verifica quantas foram realmente traced
@@ -174,7 +186,7 @@ def main() -> None:
     print("\n" + "=" * 60)
     print("DEMO 3: Coleta de feedback humano")
     print("=" * 60)
-    demo_feedback_collection()
+    demo_feedback_collection(agent)
 
     print("\n" + "-" * 60)
     print("Em PRODUCAO, tambem considere:")
