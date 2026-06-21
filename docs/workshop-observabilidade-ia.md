@@ -281,34 +281,73 @@ results = mlflow.genai.evaluate(
 > 💡 **Dica:** combine os dois. Judges LLM medem qualidade subjetiva; scorers de código
 > garantem regras objetivas de graça e sem latência.
 
-### Demo 5 — Agente real com tools + sessions (tracing automático)
+### Demo 5 — Agente real com streaming + span manual (padrão produção)
 
 `make langchain-agent` · módulo `langchain_agent.py`
 
-Em um agente LangChain, o tracing é 100% automático. Uma linha liga tudo:
+Em produção, um agente LangChain usa **streaming** para entregar tokens ao usuário
+em tempo real, e um **span manual** (`SpanType.AGENT`) para controle fino do tracing.
+Este é o mesmo padrão usado no backend de produção do keepee-rag.
+
+O fluxo principal:
 
 ```python
-mlflow.langchain.autolog()   # captura AGENT, CHAT_MODEL e TOOL spans automaticamente
-agent = build_agent()
+import mlflow
+from mlflow.entities import SpanType
+from langgraph.config import get_stream_writer
+
+async def agent_invoke_stream(agent, query: str, user_id: str, session_id: str):
+    # 1. Monta mensagens com SystemMessage + historico + pergunta
+    input_messages = [
+        SystemMessage(content="Voce e um assistente que usa tools."),
+        *_sessions.get(session_id, []),   # historico da sessao
+        HumanMessage(content=query),
+    ]
+
+    # 2. Span manual AGENT (input/session definidos ANTES do stream)
+    with mlflow.start_span(name=query[:50], span_type=SpanType.AGENT) as span:
+        span.set_inputs({"query": query})
+        mlflow.update_current_trace(session_id=session_id, user=user_id)
+
+        # 3. Streaming com agent.astream()
+        async for mode, data in agent.astream(
+            {"messages": input_messages},
+            config={"recursion_limit": 40},
+            stream_mode=["messages", "custom"],
+        ):
+            if mode == "custom":
+                yield make_event("tool", data)          # progresso da tool
+            elif isinstance(chunk, AIMessageChunk) and chunk.content:
+                yield make_event("text_chunk", text)    # tokens
+
+        # 4. Reconstroi historico da sessao pos-stream
+        new_messages = _collect_messages(raw_chunks, ...)
+        _sessions[session_id] = chat_history + new_messages
+
+        # 5. Seta tags e output no span
+        mlflow.update_current_trace(tags={"model_name": model_name, ...})
+        span.set_outputs({"response": accumulated_response[:500]})
+
+    # 6. Expoe trace_id para anexar feedback depois
+    yield make_event("done", trace_id)
 ```
 
-E para rastrear **quem** falou e em **qual sessão** (essencial para suporte multi-turn):
+**Diferenças cruciais** entre o padrão produção (acima) e a abordagem "automática":
 
-```python
-def agent_invoke(agent, query: str, user_id: str, session_id: str) -> str:
-    config = {"configurable": {"thread_id": session_id}}  # mantém histórico
-    result = agent.invoke({"messages": [HumanMessage(content=query)]}, config=config)
+| Aspecto | `mlflow.langchain.autolog()` | Padrão produção (manual span) |
+|---------|------------------------------|-------------------------------|
+| Streaming | Não suporta (`invoke` bloqueante) | `astream()` token a token |
+| Session | MemorySaver (checkpointer) | Dict simples (reconstrução manual) |
+| Controle do span | Automático (genérico) | Inputs/outputs explícitos |
+| Progresso das tools | Só o resultado final | Logs intermediários via `get_stream_writer()` |
+| Eventos | Apenas no trace | JSON newline-delimited (para SSE) |
+| trace_id | Só via `get_last_active_trace_id()` | Capturado do span manual |
 
-    # vincula user e session ao trace -> filtrável no UI
-    mlflow.update_current_trace(session_id=session_id, user=user_id)
+**O que mostrar no UI:** o trace com o span `AGENT` manual que tem inputs/outputs
+explícitos, tags `provider`, `model_name`, `session_id`, e `new_messages`. Os spans
+filhos `ChatOpenAI` e `Tool` continuam sendo capturados automaticamente pelo autolog.
 
-    return result["messages"][-1].content
-```
-
-**O que mostrar no UI:** o trace com a árvore `AGENT > CHAT_MODEL > TOOL > CHAT_MODEL`, e
-o filtro de traces por `user` e `session_id`.
-
-### Demo 6 — Operando em produção (sampling + feedback)
+### Demo 6 — Feedback humano + sampling em produção
 
 `make monitoring` · módulo `production_monitoring.py`
 
