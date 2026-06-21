@@ -1,0 +1,90 @@
+# =============================================================================
+# MLflow Stack — Tracking Server + AI Gateway + PostgreSQL
+# =============================================================================
+#
+# Servicos:
+#   postgres   — backend SQL do MLflow (obrigatorio para modulos como datasets)
+#   mlflow     — tracking server + AI Gateway (OpenAI-compatible)
+#
+# Uso:
+#   docker compose up -d        # sobe tudo
+#   docker compose down -v      # derruba tudo (remove volumes)
+#
+# Acessos:
+#   MLflow UI:    http://localhost:5000
+#   AI Gateway:   http://localhost:5000/gateway/mlflow/v1
+#
+# Configurar rotas do Gateway:
+#   As rotas (endpoints para modelos) sao configuradas via UI ou API.
+#   Exemplo com Python:
+#     import mlflow.gateway
+#     mlflow.gateway.create_route(
+#         name="qwen3.5-9b",
+#         route_type="llm/v1/chat",
+#         model={"name": "qwen3.5-9b", "provider": "openai",
+#                "config": {"openai_api_key": "...", "openai_api_base": "...",
+#                          "openai_deployment_name": "qwen3.5-9b"}}
+#     )
+#
+# Variaveis de ambiente:
+#   MLFLOW_PORT         — porta do MLflow (default: 5000)
+#   POSTGRES_PASSWORD   — senha do PostgreSQL (default: mlflow)
+#
+# Requisitos: Docker 24+ e Docker Compose 2.20+
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # PostgreSQL — backend de metadados do MLflow
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_DB: mlflow
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlflow}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # MLflow Tracking Server + AI Gateway
+  # ---------------------------------------------------------------------------
+  mlflow:
+    # NOTA: A imagem oficial ghcr.io/mlflow/mlflow NAO tem ENTRYPOINT nem CMD.
+    #       O command explicito abaixo e obrigatorio.
+    #       A variante -full inclui drivers PostgreSQL (psycopg2) e extras
+    #       gateway/genai. Tags validas: v3.12.0, v3.13.0, v3.14.0 (v3.10.0
+    #       nao existe).
+    image: ghcr.io/mlflow/mlflow:v3.14.0-full
+    restart: unless-stopped
+    ports:
+      - "${MLFLOW_PORT:-5000}:5000"
+    environment:
+      # Apenas telemetria e config auxiliar; os flags --backend-store-uri e
+      # --default-artifact-root sao passados via command abaixo.
+      MLFLOW_DISABLE_TELEMETRY: "true"
+      DO_NOT_TRACK: "true"
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://mlflow:${POSTGRES_PASSWORD:-mlflow}@postgres:5432/mlflow
+      --default-artifact-root /mlflow/artifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  mlflow_artifacts:
