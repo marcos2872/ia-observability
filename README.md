@@ -1,5 +1,7 @@
 # ia-observability
 
+![Observabilidade em IA](docs/images/Gemini_Generated_Image_6oaua56oaua56oau.png)
+
 Projeto **didatico** de observabilidade e benchmark de LLM usando [MLflow GenAI](https://mlflow.org/docs/latest/genai/).
 
 Cada modulo e um exemplo **autocontido** de uma funcionalidade do MLflow, do basico (tracing) ao avancado (otimizacao de prompts). Os modelos sao servidos pelo **MLflow AI Gateway** (endpoint compativel com OpenAI).
