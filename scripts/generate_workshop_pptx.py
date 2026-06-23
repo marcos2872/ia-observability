@@ -3,6 +3,8 @@
 Paleta neon-cyber / dark-mode com 23 slides, capa com imagem full-bleed.
 """
 
+import os
+
 from lxml import etree
 from pptx import Presentation
 from pptx.dml.color import RGBColor
@@ -27,6 +29,7 @@ CODE_BG = RGBColor(0x0D, 0x11, 0x1C)  # fundo de codigo
 BORDER = RGBColor(0x1E, 0x24, 0x3A)  # borda sutil
 WHITE = RGBColor(0xFF, 0xFF, 0xFF)
 GRAY_DOT = RGBColor(0x3A, 0x40, 0x55)
+LINE_DIM = RGBColor(0x2A, 0x30, 0x48)  # linha decorativa
 
 CARD_COLORS = [CYAN, PURPLE, MINT, PINK]  # ciclo para cards
 
@@ -231,7 +234,7 @@ def _section_number(slide, num, label, subtitle=""):
             align=PP_ALIGN.LEFT,
         )
     # linha decorativa diagonal (simulada com retangulo fino)
-    _rect(slide, M, Inches(4.8), Inches(6), Pt(2), RGBColor(0x2A, 0x30, 0x48))
+    _rect(slide, M, Inches(4.8), Inches(6), Pt(2), LINE_DIM)
 
 
 def _card(slide, l, t, w, h, accent_color=CYAN):
@@ -265,7 +268,10 @@ def build():
     _set_bg(s, BG_PRIMARY)
     # full-bleed imagem
     img_path = "docs/images/Gemini_Generated_Image_6oaua56oaua56oau.png"
-    s.shapes.add_picture(img_path, Inches(0), Inches(0), SLIDE_W, SLIDE_H)
+    if not os.path.exists(img_path):
+        print(f"  [AVISO] Imagem nao encontrada: {img_path} — capa sem imagem")
+    else:
+        s.shapes.add_picture(img_path, Inches(0), Inches(0), SLIDE_W, SLIDE_H)
     # overlay escuro 55%
     _rect(s, Inches(0), Inches(0), SLIDE_W, SLIDE_H, BG_PRIMARY, alpha_pct=55)
     # barra neon topo
@@ -738,20 +744,18 @@ def build():
         M,
         Inches(1.7),
         CONTENT_W,
-        Inches(1.6),
+        Inches(2.2),
         [
             "import mlflow",
-            "",
             "mlflow.openai.autolog()   # <- 1 linha instrumenta todas as chamadas",
-            "",
             "client = get_client()",
             "response = client.chat.completions.create(",
             "    model=MODEL_NAME, messages=[...],",
             ")",
         ],
-        size=14,
+        size=12,
     )
-    tf = _rich_box(s, M, Inches(3.7), CONTENT_W, Inches(3.0))
+    tf = _rich_box(s, M, Inches(4.2), CONTENT_W, Inches(2.5))
     _bullet(
         tf,
         "Captura inputs, outputs, tokens e latencia automaticamente",
@@ -804,29 +808,27 @@ def build():
         M,
         Inches(1.7),
         CONTENT_W,
-        Inches(2.8),
+        Inches(3.2),
         [
             "@mlflow.trace",
             "def demo_rag_pipeline(question: str) -> str:",
             "    context = retrieve_context(question)        # span filho",
             "    answer = generate_answer(question, context) # span filho",
             "    return answer",
-            "",
             '@mlflow.trace(span_type="RETRIEVER")',
             "def retrieve_context(question: str) -> str:",
             "    ...  # busca em vector store",
-            "",
             '@mlflow.trace(span_type="LLM")',
             "def generate_answer(question: str, context: str) -> str:",
             "    ...  # chamada ao LLM com o contexto",
         ],
-        size=13,
+        size=12,
     )
-    _card(s, M, Inches(4.9), CONTENT_W, Inches(1.0), CYAN)
+    _card(s, M, Inches(5.2), CONTENT_W, Inches(1.0), CYAN)
     _txt(
         s,
         Inches(1.2),
-        Inches(5.1),
+        Inches(5.4),
         Inches(10.5),
         Inches(0.6),
         "Resposta errada? O trace mostra: foi o retrieval (contexto ruim) "
@@ -931,7 +933,7 @@ def build():
         color=CYAN,
     )
     # LLM Judge card
-    _card(s, M, Inches(1.7), Inches(5.6), Inches(4.5), CYAN)
+    _card(s, M, Inches(1.7), Inches(5.6), Inches(5.0), CYAN)
     _txt(
         s,
         Inches(1.2),
@@ -958,7 +960,7 @@ def build():
         Inches(1.2),
         Inches(2.8),
         Inches(5.0),
-        Inches(1.8),
+        Inches(2.2),
         [
             "Guidelines(",
             '    name="technical_accuracy",',
@@ -970,7 +972,7 @@ def build():
         size=12,
     )
     # Code-based card
-    _card(s, Inches(6.8), Inches(1.7), Inches(5.6), Inches(4.5), MINT)
+    _card(s, Inches(6.8), Inches(1.7), Inches(5.6), Inches(5.0), MINT)
     _txt(
         s,
         Inches(7.2),
@@ -997,7 +999,7 @@ def build():
         Inches(7.2),
         Inches(2.8),
         Inches(5.0),
-        Inches(1.8),
+        Inches(2.2),
         [
             "@scorer",
             "def no_hallucination(inputs, outputs):",
@@ -1025,7 +1027,7 @@ def build():
     _page(s, 15)
 
     # ================================================================
-    # SLIDE 16 — Demo 5: Streaming + span manual
+    # SLIDE 16 — Demo 5: Agente real com tools + sessions (autolog)
     # ================================================================
     s = slide()
     _set_bg(s, BG_PRIMARY)
@@ -1036,7 +1038,7 @@ def build():
         Inches(0.5),
         Inches(11),
         Inches(0.6),
-        "Demo 5 — Agente real com streaming",
+        "Demo 5 — Agente real com tools + sessions",
         size=TITLE_SIZE,
         bold=True,
         color=WHITE,
@@ -1051,19 +1053,19 @@ def build():
         size=16,
         color=CYAN,
     )
-    # badge producao
+    # badge autolog
     _rect(s, M, Inches(1.6), Inches(2.8), Inches(0.4), BG_CARD2)
-    _rect(s, M, Inches(1.6), Pt(4), Inches(0.4), PINK)
+    _rect(s, M, Inches(1.6), Pt(4), Inches(0.4), MINT)
     _txt(
         s,
         M,
         Inches(1.68),
         Inches(2.4),
         Inches(0.4),
-        "PROD",
+        "AUTOLOG",
         size=9,
         bold=True,
-        color=PINK,
+        color=MINT,
         align=PP_ALIGN.CENTER,
     )
     _txt(
@@ -1072,31 +1074,48 @@ def build():
         Inches(1.7),
         Inches(10),
         Inches(0.4),
-        "Mesmo padrao do backend de producao keepee-rag RAG",
+        "mlflow.langchain.autolog() captura AGENT, CHAT_MODEL, TOOL spans",
         size=16,
         bold=True,
-        color=PINK,
+        color=MINT,
     )
-    # topicos
-    tf = _rich_box(s, M, Inches(2.4), CONTENT_W, Inches(4.5))
+    # codigo
+    _code(
+        s,
+        M,
+        Inches(2.4),
+        Inches(6.8),
+        Inches(2.8),
+        [
+            "mlflow.langchain.autolog()  # tracing automatico",
+            "agent = create_agent(model=llm, tools=ALL_TOOLS,",
+            "                     checkpointer=MemorySaver())",
+            "def agent_invoke(agent, q, user, session):",
+            '    config = {"thread_id": session}',
+            '    result = agent.invoke({"messages": [q]}, config)',
+            "    mlflow.update_current_trace(session_id=session,",
+            "                               user=user)",
+            "    return result['messages'][-1].content",
+        ],
+        size=11,
+    )
+    # topicos ao lado
+    tf = _rich_box(s, Inches(7.8), Inches(2.4), Inches(5.0), Inches(4.5))
     for item in [
-        "agent.astream() — streaming token a token em tempo real",
-        "Span manual SpanType.AGENT com inputs/outputs explicitos",
-        "Session em dict (reconstrucao manual do historico)",
-        "get_stream_writer() para logs de progresso das tools",
-        "Eventos JSON newline-delimited via make_event()",
-        "trace_id capturado do span e exposto para feedback",
-        "User/session vinculados ao trace ANTES do stream",
-        "Tags (provider, model_name) setadas apos o stream",
+        "agent.invoke() — chamada sincrona com tracing automatico",
+        "Spans: AGENT > CHAT_MODEL > TOOL > CHAT_MODEL",
+        "MemorySaver mantem historico multi-turn (thread_id)",
+        "user_id e session_id vinculados via update_current_trace()",
+        "Registros filtráveis por user/session no MLflow UI",
+        "Tools definidas com @tool (get_weather, search_docs, ...)",
+        "Tool com falha simulada (timeout de 2,5s) visivel no trace",
+        "5 cenarios: single/multi-tool, multi-turn, multi-user, falha",
     ]:
-        color = (
-            CYAN if "astream" in item else PURPLE if "manual" in item else TEXT_LIGHT
-        )
-        _bullet(tf, f"▸  {item}", size=15, color=color, sb=Pt(8))
+        _bullet(tf, f"▸  {item}", size=13, color=TEXT_LIGHT, sb=Pt(8))
     _page(s, 16)
 
     # ================================================================
-    # SLIDE 17 — Demo 5: autolog vs manual (tabela)
+    # SLIDE 17 — Autolog: como funciona
     # ================================================================
     s = slide()
     _set_bg(s, BG_PRIMARY)
@@ -1107,22 +1126,21 @@ def build():
         Inches(0.5),
         Inches(11),
         Inches(0.6),
-        "autolog vs. Manual Span",
+        "Como funciona o tracing automatico",
         size=TITLE_SIZE,
         bold=True,
         color=WHITE,
     )
-    rows, cols = 7, 3
-    tbl_shape = s.shapes.add_table(rows, cols, M, Inches(1.4), CONTENT_W, Inches(5.0))
+    rows, cols = 6, 2
+    tbl_shape = s.shapes.add_table(rows, cols, M, Inches(1.4), CONTENT_W, Inches(4.5))
     tbl = tbl_shape.table
-    tbl.columns[0].width = Inches(2.2)
-    tbl.columns[1].width = Inches(4.8)
-    tbl.columns[2].width = Inches(4.7)
-    for ci, h in enumerate(["Aspecto", "autolog()", "Producao (manual span)"]):
+    tbl.columns[0].width = Inches(4.5)
+    tbl.columns[1].width = Inches(7.2)
+    for ci, h in enumerate(["Componente", "Tracing automatico"]):
         c = tbl.cell(0, ci)
         c.text = h
         for p in c.text_frame.paragraphs:
-            p.font.size = Pt(14)
+            p.font.size = Pt(15)
             p.font.bold = True
             p.font.color.rgb = BG_PRIMARY
             p.font.name = "Calibri"
@@ -1130,12 +1148,11 @@ def build():
         c.fill.solid()
         c.fill.fore_color.rgb = CYAN
     tdata = [
-        ["Streaming", "invoke() bloqueante", "astream() token a token"],
-        ["Session", "MemorySaver (checkpointer)", "Dict (reconstrucao manual)"],
-        ["Controle", "Automatico (generico)", "Inputs/outputs explicitos"],
-        ["Progresso tools", "So o resultado final", "Logs via get_stream_writer()"],
-        ["Eventos", "Apenas no trace", "JSON newline-delimited (SSE)"],
-        ["trace_id", "get_last_active_trace_id()", "Capturado do span manual"],
+        ["Tool call (get_weather)", "Span TOOL com input/output e latencia"],
+        ["Chamada ao LLM", "Span CHAT_MODEL com tokens e custo"],
+        ["Loop ReAct (raciocinio)", "Span AGENT com plano de acao"],
+        ["Multi-turn session", "Historico mantido via MemorySaver"],
+        ["Falha de tool", "Span TOOL com erro e duracao visiveis"],
     ]
     for ri, row in enumerate(tdata):
         bg_cell = BG_CARD if ri % 2 == 0 else BG_CARD2
@@ -1143,7 +1160,7 @@ def build():
             c = tbl.cell(ri + 1, ci)
             c.text = val
             for p in c.text_frame.paragraphs:
-                p.font.size = Pt(13)
+                p.font.size = Pt(14)
                 p.font.color.rgb = TEXT_LIGHT
                 p.font.name = "Calibri"
             c.fill.solid()
@@ -1152,9 +1169,20 @@ def build():
                 for p in c.text_frame.paragraphs:
                     p.font.bold = True
                     p.font.color.rgb = CYAN
-            if ci == 2:
-                for p in c.text_frame.paragraphs:
-                    p.font.color.rgb = MINT
+    # card destaque
+    _rect(s, M, Inches(6.2), CONTENT_W, Inches(0.65), BG_CARD2)
+    _rect(s, M, Inches(6.2), Pt(4), Inches(0.65), PURPLE)
+    _txt(
+        s,
+        Inches(1.2),
+        Inches(6.3),
+        Inches(10.5),
+        Inches(0.45),
+        "Tudo isso sem instrumentacao manual — o autolog faz todo o trabalho.",
+        size=15,
+        bold=True,
+        color=PURPLE,
+    )
     _page(s, 17)
 
     # ================================================================
@@ -1241,12 +1269,9 @@ def build():
         Inches(1.5),
         [
             "trace_id = get_last_active_trace_id()",
-            "mlflow.log_feedback(",
-            "    trace_id=trace_id,",
-            '    name="user_rating",',
-            "    value=True,  # like/dislike",
-            '    rationale="texto do usuario",',
-            ")",
+            "mlflow.log_feedback(trace_id=trace_id,",
+            '                name="user_rating",',
+            '                value=True, rationale="msg")',
         ],
         size=12,
     )
