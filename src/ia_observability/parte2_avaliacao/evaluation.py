@@ -1,18 +1,29 @@
-"""Demonstracao de evaluation/benchmark com datasets e scorers built-in.
+"""
+[Parte 2 — Avaliação] Módulo 04: Evaluation com Scorers Built-in
+==================================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Entender o que é avaliação sistemática de LLMs       ║
+║  • Conhecer os scorers built-in do MLflow (Correctness, ║
+║    RelevanceToQuery, Guidelines, Safety, Fluency)        ║
+║  • Criar um dataset de avaliação com inputs/expecations ║
+║  • Rodar mlflow.genai.evaluate() e interpretar métricas ║
+╚══════════════════════════════════════════════════════════╝
 
-MLflow Evaluation permite medir sistematicamente a qualidade de LLMs usando:
-- Datasets de avaliacao com inputs e expectations
-- predict_fn que gera outputs para cada input
-- Scorers (judges) que avaliam a qualidade dos outputs
+CONCEITO-CHAVE:
+  "Se não dá para medir, não dá para melhorar." Avaliação
+  sistemática usa DATASETS de perguntas com respostas esperadas
+  e SCORERS (judges) que medem a qualidade automaticamente.
+  Isso substitui o "achismo" por métricas objetivas.
 
-Built-in judges disponiveis:
-- Correctness: verifica se expected_facts estao na resposta
-- RelevanceToQuery: verifica se resposta e relevante ao input
-- Guidelines: verifica aderencia a regras customizadas
-- Safety: detecta conteudo toxico/prejudicial
-- Fluency: avalia fluencia gramatical
+PRÉ-REQUISITOS:  Parte 1 (tracing + tokens)
+DIFICULDADE:     🟡 Médio
+TEMPO ESTIMADO:  20 min
 
-Referencia: https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/
+--- Como usar ---
+  uv run evaluation    ou    make evaluation
+
+Referência: https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/
 """
 
 import mlflow
@@ -152,11 +163,28 @@ def main() -> None:
     else:
         print("  (Metricas nao disponiveis - verifique o MLflow UI)")
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ mlflow.genai.evaluate() executa predict_fn para
+    #     cada exemplo do dataset e passa o output para
+    #     os scorers.
+    #  ✔ Correctness: verifica se fatos esperados estão
+    #     na resposta (ground-truth based).
+    #  ✔ RelevanceToQuery: mede relevância ao input.
+    #  ✔ Guidelines: judge customizado via linguagem
+    #     natural (ex: "responda em português").
+    #  ✔ Resultados consolidados em métricas por scorer.
+    #
+    #  🔍 MLflow UI → Experiment '04-evaluation':
+    #     tabela com score de cada judge por exemplo.
+    #
+    #  💡 EXERCÍCIO: Adicione mais 2 perguntas ao dataset
+    #     com fatos esperados. A média dos scores mudou?
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("Abra o MLflow UI -> Experiment '04-evaluation' para ver:")
-    print("  - Resultados detalhados por exemplo")
-    print("  - Scores de cada judge")
-    print("  - Rationale (explicacao) de cada avaliacao")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 04-evaluation no MLflow UI")
     print("-" * 60)
 
 

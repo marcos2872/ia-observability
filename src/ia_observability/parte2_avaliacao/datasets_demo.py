@@ -1,16 +1,28 @@
-"""Demonstracao de Evaluation Datasets: subir (criar) e buscar datasets.
+"""
+[Parte 2 — Avaliação] Módulo 12: Evaluation Datasets
+======================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Entender o que são evaluation datasets no MLflow     ║
+║  • Aprender a submeter datasets via SDK                 ║
+║  • Buscar datasets salvos para reuso                    ║
+║  • Requer backend SQL no tracking server                ║
+╚══════════════════════════════════════════════════════════╝
 
-O MLflow Evaluation Dataset e um conjunto versionado de exemplos
-(inputs + expectations) usado para testar e comparar versoes da sua
-aplicacao LLM. Este modulo mostra o ciclo basico:
+CONCEITO-CHAVE:
+  Datasets de avaliação são a "prova" do seu LLM: perguntas
+  com respostas esperadas que você reutiliza entre versões
+  do modelo/prompt para comparar qualidade. O MLflow permite
+  versioná-los e vinculá-los a experiments.
 
-1. Subir um dataset: create_dataset + merge_records + set_dataset_tags
-2. Buscar um dataset: get_dataset + inspecao + atualizacao incremental
+PRÉ-REQUISITOS:  Módulos 04 e 05 (evaluation + judges)
+DIFICULDADE:     🟡 Médio (requer backend SQL)
+TEMPO ESTIMADO:  15 min
 
-ATENCAO: Evaluation Datasets exigem um MLflow Tracking Server com backend
-SQL (PostgreSQL, MySQL, SQLite ou MSSQL). FileStore NAO e suportado.
+--- Como usar ---
+  uv run datasets    ou    make datasets
 
-Referencia: https://mlflow.org/docs/latest/genai/datasets/
+Referência: https://mlflow.org/docs/latest/genai/datasets/
 """
 
 import mlflow
@@ -163,11 +175,28 @@ def main() -> None:
     print("=" * 60)
     demo_fetch_dataset()
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ create_dataset(): cria dataset vinculado a um
+    #     experiment, com tags de identificação.
+    #  ✔ merge_records(): adiciona exemplos (inputs +
+    #     expectations) ao dataset.
+    #  ✔ set_dataset_tags(): versionamento incremental
+    #     com tags (ex: validation_version=1.1).
+    #  ✔ get_dataset(): busca dataset existente pelo nome.
+    #  ✔ to_df(): visualiza registros como DataFrame.
+    #
+    #  ⚠️ Requer backend SQL (PostgreSQL, MySQL, SQLite).
+    #     FileStore não é suportado.
+    #
+    #  💡 EXERCÍCIO: Crie um dataset com 5 perguntas do
+    #     seu domínio e execute uma avaliação com ele
+    #     (veja módulo 04 - evaluation).
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("Abra o MLflow UI para visualizar:")
-    print(f"  -> Experiment: {EXPERIMENT_NAME}")
-    print(f"  - Evaluation Dataset: {DATASET_NAME}")
-    print("  - Registros (inputs + expectations) e tags de versao")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print(f"  Experiment: 12-datasets no MLflow UI")
     print("-" * 60)
 
 

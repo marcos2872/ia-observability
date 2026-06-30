@@ -1,14 +1,31 @@
-"""Demonstracao de LLM judges customizados e code-based scorers.
+"""
+[Parte 2 — Avaliação] Módulo 05: LLM Judges Customizados
+===========================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Diferenciar LLM judges (qualitativos) de code-based  ║
+║    scorers (determinísticos)                             ║
+║  • Criar Guidelines judges com critérios em linguagem    ║
+║    natural                                               ║
+║  • Implementar code-based scorers com @scorer + Feedback ║
+║  • Combinar os dois tipos para avaliação robusta         ║
+╚══════════════════════════════════════════════════════════╝
 
-Tipos de judges disponveis:
-1. Built-in judges (Correctness, Safety, etc) - prontos para uso
-2. Guidelines judges - criterios em linguagem natural
-3. Custom LLM judges - prompts avancados com scoring customizado
-4. Code-based scorers - logica programatica em Python
+CONCEITO-CHAVE:
+  LLM judges usam um modelo para avaliar qualidade (custa
+  tokens, mas captura nuances). Code-based scorers são
+  regras em Python (instantâneos, sem custo). O ideal é
+  COMBINAR ambos: judges para qualidade subjetiva, scorers
+  para regras objetivas.
 
-Este modulo demonstra os tipos 2, 3 e 4.
+PRÉ-REQUISITOS:  Módulo 04 (evaluation) — conceito de scorers
+DIFICULDADE:     🟡 Médio
+TEMPO ESTIMADO:  20 min
 
-Referencia: https://mlflow.org/docs/latest/genai/eval-monitor/scorers/
+--- Como usar ---
+  uv run judges    ou    make judges
+
+Referência: https://mlflow.org/docs/latest/genai/eval-monitor/scorers/
 """
 
 import mlflow
@@ -202,11 +219,27 @@ def main() -> None:
     else:
         print("  (Verifique o MLflow UI para resultados detalhados)")
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ Guidelines: judge LLM que avalia segundo critérios
+    #     em linguagem natural (ex: "deve ser preciso").
+    #  ✔ @scorer + Feedback: cria avaliadores 100% em
+    #     Python, sem custo de tokens.
+    #  ✔ Code-based scorers são ideais para regras
+    #     objetivas (tamanho, palavras proibidas, formato).
+    #  ✔ A combinação dos dois tipos dá o melhor custo-
+    #     benefício: judges para nuance, scorers para garantia.
+    #
+    #  🔍 MLflow UI → Experiment '05-judges': cada judge
+    #     mostra score + rationale (justificativa).
+    #
+    #  💡 EXERCÍCIO: Crie um code-based scorer que verifica
+    #     se a resposta contém código Python (```python).
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("No MLflow UI -> Experiment '05-judges':")
-    print("  - Cada judge mostra score + rationale por exemplo")
-    print("  - Code-based scorers sao instantaneos (sem custo LLM)")
-    print("  - LLM judges geram traces proprios (meta-avaliacao)")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 05-judges no MLflow UI")
     print("-" * 60)
 
 
