@@ -310,11 +310,28 @@ def main() -> None:
     except Exception as e:
         print(f"  [ERRO] Falha na otimizacao Metaprompt: {e}")
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ GEPA (few-shot): aprende de dados de avaliação
+    #     para gerar prompts melhores iterativamente.
+    #  ✔ Metaprompting (zero-shot): reestrutura o prompt
+    #     em 1 chamada sem dados de treino.
+    #  ✔ O prompt inicial fraco ("Você é um assistente")
+    #     é transformado em um classificador eficaz.
+    #  ✔ Scorers code-based (determinísticos) são a
+    #     opção mais confiável para guiar a otimização.
+    #
+    #  🔍 MLflow UI → Experiment '13-prompt-optimization':
+    #     gráfico de eval_score por iteração (GEPA) e
+    #     prompt final no Prompt Registry.
+    #
+    #  💡 EXERCÍCIO: Crie seu próprio dataset de treino
+    #     com 10 exemplos e rode o GEPA com ele.
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("Abra o MLflow UI para visualizar:")
-    print(f"  -> Experiment: {EXPERIMENT_NAME}")
-    print(f"  - Prompt '{PROMPT_NAME}' versionado no Prompt Registry")
-    print("  - Metricas de eval_score por iteracao (GEPA)")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print(f"  Experiment: 13-prompt-optimization no MLflow UI")
     print("-" * 60)
 
 

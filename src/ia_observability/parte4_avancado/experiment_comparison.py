@@ -218,11 +218,26 @@ def main() -> None:
                     print(f" | {str(value):<15}", end="")
             print()
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ Benchmark executa a MESMA avaliação em múltiplas
+    #     configurações (modelo, temperatura, prompt).
+    #  ✔ Cada config vira um experimento separado no
+    #     MLflow para comparação lado a lado.
+    #  ✔ mlflow.search_runs() para comparar métricas
+    #     entre experimentos programaticamente.
+    #  ✔ Decisões baseadas em dados, não em "achismo".
+    #
+    #  🔍 MLflow UI → Experiments '08-benchmark-*':
+    #     compare as métricas entre configurações.
+    #
+    #  💡 EXERCÍCIO: Adicione uma terceira configuração
+    #     (ex: temperatura=0.5) e compare os resultados.
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("No MLflow UI -> Experiment '08-experiment-comparison':")
-    print("  - Compare runs lado a lado")
-    print("  - Analise qual config tem melhor score geral")
-    print("  - Cada LoggedModel mostra seus traces vinculados")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 08-experiment-comparison no MLflow UI")
     print("-" * 60)
 
 

@@ -157,12 +157,28 @@ def main() -> None:
     print("=" * 60)
     demo_compare_versions("observabilidade em sistemas de IA")
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ Prompt Registry versiona prompts como "git
+    #     para prompts": cada alteração gera nova versão.
+    #  ✔ register_prompt(): registra um prompt com nome,
+    #     template e metadados.
+    #  ✔ load_prompt(): carrega versão específica ou
+    #     @latest pelo URI "prompts:/nome/versão".
+    #  ✔ Prompts vinculados a traces: o trace mostra
+    #     qual versão do prompt gerou a resposta.
+    #
+    #  🔍 MLflow UI → Prompt Registry: veja as versões
+    #     do prompt e seu histórico de alterações.
+    #
+    #  💡 EXERCÍCIO: Registre uma nova versão do prompt
+    #     com um system message diferente e veja o
+    #     versionamento no UI.
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("Abra o MLflow UI para visualizar:")
-    print(f"  -> Experiment: 10-prompt-management")
-    print("  - Traces linkados aos prompts registrados")
-    print("  - Prompt Registry com versoes v1 e v2")
-    print("  - Comparacao de respostas por versao")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 10-prompt-management no MLflow UI")
     print("-" * 60)
 
 
