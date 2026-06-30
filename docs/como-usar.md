@@ -172,20 +172,24 @@ Pontos que costumam pegar quem está começando — todos já tratados no códig
 
 ```
 src/ia_observability/
-├── config.py                 # .env + MLflow + cliente do Gateway (setup centralizado)
-├── tracing_basics.py         # 01 - auto-tracing, decorators, spans aninhados
-├── token_usage.py            # 02 - token counting, custo, span-level usage
-├── sessions.py               # 03 - conversas multi-turn, user/session tracking
-├── evaluation.py             # 04 - mlflow.genai.evaluate() com scorers built-in
-├── judges.py                 # 05 - Guidelines judges + code-based scorers
-├── version_tracking.py       # 06 - LoggedModel, versionamento por config
-├── production_monitoring.py  # 07 - async, sampling, feedback
-├── experiment_comparison.py  # 08 - benchmark comparativo
-├── tool_calls.py             # 09 - tool calling (spans AGENT/TOOL/CHAT_MODEL)
-├── prompt_management.py      # 10 - prompt registry: registrar, versionar, linkar
-├── langchain_agent.py        # 11 - tool calling + sessions via LangChain (automático)
-├── datasets_demo.py          # 12 - evaluation datasets: subir + buscar (SQL)
-└── prompt_optimization.py    # 13 - prompt optimization: GEPA + Metaprompting
+├── config.py                          # Configuração centralizada
+├── parte1_fundamentos/                # 🟢 Fundamentos
+│   ├── tracing_basics.py              # 01 - Auto-tracing, spans
+│   └── token_usage.py                 # 02 - Tokens e custo
+├── parte2_avaliacao/                  # 🟡 Avaliação
+│   ├── evaluation.py                  # 04 - Scorers built-in
+│   ├── judges.py                      # 05 - LLM judges customizados
+│   └── datasets_demo.py               # 12 - Evaluation datasets
+├── parte3_producao/                   # 🟡🔴 Produção
+│   ├── sessions.py                    # 03 - Sessões multi-turn
+│   ├── version_tracking.py            # 06 - Versionamento
+│   ├── production_monitoring.py       # 07 - Sampling, feedback
+│   ├── tool_calls.py                  # 09 - Tool calling manual
+│   └── langchain_agent.py             # 11 - Agente LangChain
+└── parte4_avancado/                   # 🔴 Avançado
+    ├── experiment_comparison.py       # 08 - Benchmark de configs
+    ├── prompt_management.py           # 10 - Prompt registry
+    └── prompt_optimization.py         # 13 - GEPA + Metaprompting
 ```
 
 ---

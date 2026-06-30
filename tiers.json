@@ -1,0 +1,11 @@
+{
+  "explore": {
+    "model": "opencode/big-pickle"
+  },
+  "general-medium": {
+    "model": "llama.cpp/Nex-N2-mini"
+  },
+  "general-heavy": {
+    "model": "llama.cpp/Nex-N2-mini"
+  }
+}

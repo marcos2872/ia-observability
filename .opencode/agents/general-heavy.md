@@ -1,0 +1,1 @@
+/home/marcos/Projects/opencode-router-model/agents/general-heavy.md

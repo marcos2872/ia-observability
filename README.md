@@ -1,7 +1,5 @@
 # ia-observability
 
-![Observabilidade em IA](docs/images/Gemini_Generated_Image_6oaua56oaua56oau.png)
-
 [![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://docs.python.org/pt-br/3.14/)
 [![MLflow GenAI >= 3.10](https://img.shields.io/badge/mlflow%20genai-%3E%3D%203.10-blue)](https://mlflow.org/docs/latest/genai/)
 [![Gateway OpenAI](https://img.shields.io/badge/openai-compatible-gateway-brightgreen)](https://mlflow.org/docs/latest/genai/tracing/)

@@ -1,0 +1,22 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["/home/marcos/Projects/opencode-router-model/dist/index.js"],
+  "provider": {
+    "llama.cpp": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "Server IA",
+      "options": {
+        "baseURL": "http://100.68.95.21:8080/v1"
+      },
+      "models": {
+        "Nex-N2-mini": {
+          "name": "Nex-N2-mini",
+          "supportsToolCalls": true,
+          "contextWindow": 262144,
+          "reasoning": true,
+          "maxTokens": 4096
+        }
+      }
+    }
+  }
+}
