@@ -2,7 +2,7 @@
 
 ## Overview
 
-Reference project demonstrating LLM observability with MLflow GenAI. Twelve standalone demo modules, each creating its own MLflow experiment. No tests, no CI — scripts only.
+Reference project demonstrating LLM observability with MLflow GenAI. Thirteen standalone demo modules organized in 4 didactic parts (Fundamentals → Evaluation → Production → Advanced), each creating its own MLflow experiment. No tests, no CI — scripts only.
 
 ## Stack
 
@@ -40,19 +40,23 @@ Requires `.env` at repo root (see `.env.example`):
 ```
 src/ia_observability/
   config.py                  # setup_mlflow(), get_client(), patch_judge_timeout(), constants
-  tracing_basics.py          # 01 - auto-tracing, decorators, manual spans
-  token_usage.py             # 02 - token counts + manual cost attribution
-  sessions.py                # 03 - multi-turn sessions, user tracking
-  evaluation.py              # 04 - mlflow.genai.evaluate() with built-in scorers
-  judges.py                  # 05 - custom LLM judges + code-based scorers
-  version_tracking.py        # 06 - LoggedModel versioning
-  production_monitoring.py   # 07 - async tracing, sampling, feedback
-  experiment_comparison.py   # 08 - benchmark across configs
-  tool_calls.py              # 09 - tool calling with AGENT/TOOL/CHAT_MODEL spans
-  prompt_management.py       # 10 - prompt registry, versioning, linked prompts
-  langchain_agent.py         # 11 - tool calling + sessions via LangChain (auto)
-  datasets_demo.py           # 12 - evaluation datasets: upload + fetch (SQL backend)
-  prompt_optimization.py     # 13 - prompt optimization: GEPA + Metaprompting
+  parte1_fundamentos/        # 🟢 Tracing + Tokens
+    tracing_basics.py        # 01 - auto-tracing, decorators, manual spans
+    token_usage.py           # 02 - token counts + manual cost attribution
+  parte2_avaliacao/          # 🟡 Evaluation + Judges + Datasets
+    evaluation.py            # 04 - mlflow.genai.evaluate() with built-in scorers
+    judges.py                # 05 - custom LLM judges + code-based scorers
+    datasets_demo.py         # 12 - evaluation datasets: upload + fetch
+  parte3_producao/           # 🟡🔴 Sessions + Tools + Monitoring
+    sessions.py              # 03 - multi-turn sessions, user tracking
+    version_tracking.py      # 06 - LoggedModel versioning
+    production_monitoring.py # 07 - async tracing, sampling, feedback
+    tool_calls.py            # 09 - tool calling with AGENT/TOOL/CHAT_MODEL spans
+    langchain_agent.py       # 11 - tool calling + sessions via LangChain
+  parte4_avancado/           # 🔴 Benchmark + Prompts + Optimization
+    experiment_comparison.py # 08 - benchmark across configs
+    prompt_management.py     # 10 - prompt registry, versioning, linked prompts
+    prompt_optimization.py   # 13 - prompt optimization: GEPA + Metaprompting
 ```
 
 Each module is self-contained with a `main()` entrypoint registered in `pyproject.toml`.
