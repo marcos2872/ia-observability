@@ -1,11 +1,33 @@
-"""Demonstracao de tracing: auto-tracing, decorators e context blocks.
+"""
+[Parte 1 — Fundamentos] Módulo 01: Tracing Básico
+===================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Entender o que é tracing e por que isso importa      ║
+║  • Conhecer as 3 formas de instrumentar código com      ║
+║    MLflow: auto-tracing, decorator e context block      ║
+║  • Visualizar spans e árvores de execução no MLflow UI  ║
+║  • Conectar o conceito ao problema real de debug        ║
+╚══════════════════════════════════════════════════════════╝
 
-Este modulo mostra as 3 formas principais de instrumentar codigo com MLflow Tracing:
-1. Auto-tracing (mlflow.openai.autolog) - captura automatica de chamadas OpenAI
-2. Decorator (@mlflow.trace) - tracing de funcoes customizadas
-3. Spans aninhados - visibilidade em pipelines multi-etapa (RAG pattern)
+CONCEITO-CHAVE:
+  Tracing é o equivalente a um "gravador de chamadas" para LLMs.
+  Cada requisição vira um TRACE, que contém SPANS (passos individuais).
+  Isso responde: "O que aconteceu exatamente nesta requisição?"
 
-Referencia: https://mlflow.org/docs/latest/genai/tracing/quickstart/
+PRÉ-REQUISITOS:  Nenhum (ponto de partida do workshop)
+DIFICULDADE:     🟢 Fácil
+TEMPO ESTIMADO:  15 min para ler código + rodar + explorar UI
+
+--- Como usar este módulo ---
+  Apenas rode:  uv run tracing
+  Ou:           make tracing
+
+  O código executa 3 demos e imprime o resultado no terminal.
+  Depois abra o MLflow UI no experiment '01-tracing-basics'
+  para VER os traces gerados.
+
+Referência: https://mlflow.org/docs/latest/genai/tracing/quickstart/
 """
 
 import mlflow
@@ -169,9 +191,30 @@ def main() -> None:
     print("=" * 60)
     demo_context_block()
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ Auto-tracing (mlflow.openai.autolog): 1 linha
+    #     instrumenta TODAS as chamadas ao modelo.
+    #  ✔ Decorator @mlflow.trace: cria spans em
+    #     funções customizadas sem esforço.
+    #  ✔ Context block (mlflow.start_span): tracing
+    #     sem precisar refatorar em funções.
+    #  ✔ Spans aninhados: formam uma árvore de execução
+    #     que mostra exatamente onde cada etapa ocorreu.
+    #
+    #  🔍 Agora abra o MLflow UI → Experiment:
+    #     '01-tracing-basics' e explore a árvore de
+    #     spans do pipeline RAG (Demo 2).
+    #
+    #  💡 EXERCÍCIO SUGERIDO (tente sem olhar o código):
+    #     Adicione uma nova função "busca_web(pergunta)"
+    #     decorada com @mlflow.trace(span_type="RETRIEVER")
+    #     e veja o span extra aparecer na árvore.
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("Abra o MLflow UI para visualizar os traces gerados:")
-    print(f"  -> Experiment: 01-tracing-basics")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 01-tracing-basics no MLflow UI")
     print("-" * 60)
 
 

@@ -1,15 +1,29 @@
-"""Demonstracao de tracking de token usage e custo por chamada.
+"""
+[Parte 1 — Fundamentos] Módulo 02: Token Usage e Custo
+========================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Entender o que são tokens e por que custam dinheiro  ║
+║  • Saber como o MLflow captura token usage              ║
+║  • Aprender a atribuir custo manualmente para modelos   ║
+║    self-hosted (que não têm pricing registrado)          ║
+║  • Visualizar custo por span em pipelines multi-step    ║
+╚══════════════════════════════════════════════════════════╝
 
-O MLflow captura automaticamente:
-- Token usage: input_tokens, output_tokens, total_tokens
-- Custo: calculado automaticamente APENAS para modelos com pricing registrado
-  (OpenAI, Anthropic, etc.). Para modelos self-hosted, o custo deve ser setado
-  manualmente via span attributes.
+CONCEITO-CHAVE:
+  Toda chamada a um LLM consome INPUT tokens (o que você envia)
+  e OUTPUT tokens (o que o modelo gera). Isso tem um CUSTO.
+  Modelos comerciais (OpenAI, Anthropic) têm pricing conhecido;
+  modelos self-hosted (via Gateway) precisam de atribuição manual.
 
-Estrategia para modelos self-hosted:
-  Usar um wrapper que intercepta responses e seta cost no span ativo.
+PRÉ-REQUISITOS:  Módulo 01 (tracing_basics) — entender spans
+DIFICULDADE:     🟢 Fácil
+TEMPO ESTIMADO:  15 min
 
-Referencia: https://mlflow.org/docs/latest/genai/tracing/token-usage-cost/
+--- Como usar ---
+  uv run tokens    ou    make tokens
+
+Referência: https://mlflow.org/docs/latest/genai/tracing/token-usage-cost/
 """
 
 import mlflow
@@ -255,9 +269,30 @@ def main() -> None:
     result = demo_manual_token_attribution()
     print(f"  Resultado: {result}")
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ MLflow captura token usage automaticamente com
+    #     mlflow.openai.autolog().
+    #  ✔ Para modelos self-hosted, o custo precisa ser
+    #     setado manualmente via span attributes.
+    #  ✔ Padrão: calcular input_cost + output_cost usando
+    #     pricing customizado e setar em
+    #     span.set_attribute("mlflow.llm.cost", {...}).
+    #  ✔ Custos por span individual permitem ver qual
+    #     etapa do pipeline está mais cara.
+    #
+    #  🔍 MLflow UI → Experiment '02-token-usage':
+    #     gráfico de Token Usage e Cost Breakdown.
+    #
+    #  💡 EXERCÍCIO: Mude CUSTOM_INPUT_COST_PER_TOKEN e
+    #     CUSTOM_OUTPUT_COST_PER_TOKEN para refletir o
+    #     custo real do seu modelo (GPU, energia) e rode
+    #     novamente. O custo total mudou?
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("Abra o MLflow UI -> Experiment '02-token-usage' para ver")
-    print("graficos de Token Usage e Cost Breakdown.")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 02-token-usage no MLflow UI")
     print("-" * 60)
 
 
