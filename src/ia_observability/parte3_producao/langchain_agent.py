@@ -1,24 +1,28 @@
-"""Demonstracao de tool calling + sessions multi-turn via LangChain (streaming).
+"""
+[Parte 3 — Produção] Módulo 11: Agente LangChain com Tracing Automático
+==========================================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Usar mlflow.langchain.autolog() para tracing 100%    ║
+║    automático de agentes LangChain                       ║
+║  • Ver spans AGENT, CHAT_MODEL e TOOL no trace          ║
+║  • Combinar tool calling com sessions multi-turn        ║
+║  • Identificar gargalos (tools lentas) nos spans        ║
+╚══════════════════════════════════════════════════════════╝
 
-Combina funcionalidades de tool_calls.py e sessions.py em um unico modulo,
-usando LangChain como orquestrador com o mesmo padrão de produção do
-keepee-rag RAG backend:
+CONCEITO-CHAVE:
+  Com LangChain, o tracing é automático: uma linha
+  (mlflow.langchain.autolog()) captura todo o ciclo
+  ReAct (Reason + Act) do agente. Compare com os módulos
+  03 (sessions manual) e 09 (tool calls manual) para
+  entender a diferença de esforço.
 
-- AGENT span manual (mlflow.start_span + SpanType.AGENT) com inputs/outputs
-- Streaming token a token via agent.astream(stream_mode=["messages", "custom"])
-- Logs de progresso das tools via get_stream_writer()
-- Vinculo de user_id e session_id ao trace ANTES do stream
-- Tags (provider, model_name) no trace apos o stream
-- Trace_id capturado e exposto (para feedback)
-- Reconstrucao do historico de mensagens pos-stream (_collect_messages)
-- Session history em memoria (dict simples, sem MemorySaver)
+PRÉ-REQUISITOS:  Módulos 03 e 09 (sessions + tool calls)
+DIFICULDADE:     🟡 Médio
+TEMPO ESTIMADO:  20 min
 
-Diferencas do production keepee-rag para este demo:
-- Tools sao mockadas (sem banco, sem RAG real)
-- Output e console (eventos JSON), nao StreamingResponse HTTP
-- Session persistida em dict, nao em banco SQL
-
-Referencia: https://mlflow.org/docs/latest/genai/tracing/integrations/langchain/
+--- Como usar ---
+  uv run langchain-agent    ou    make langchain-agent
 """
 
 import asyncio
@@ -633,15 +637,26 @@ def main() -> None:
     print("=" * 60)
     asyncio.run(demo_feedback(agent))
 
-    print("\n" + "-" * 60)
-    print("Abra o MLflow UI -> Experiment '11-langchain-agent' para ver:")
-    print("  - Traces gerados pelo autolog + span manual (SpanType.AGENT)")
-    print("  - Spans: AGENT (manual) > ChatOpenAI > Tool(s) > ChatOpenAI")
-    print("  - Inputs/outputs explicitos no span manual")
-    print("  - Tags: provider, model_name, session_id, new_messages")
-    print("  - Traces filtraveis por user e session_id")
-    print("  - Feedback humano registrado via log_feedback (Demo 6)")
-    print("-" * 60)
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ mlflow.langchain.autolog(): 1 linha instrumenta
+    #     TODO o agente LangChain automaticamente.
+    #  ✔ Spans AGENT, CHAT_MODEL e TOOL são criados
+    #     sem nenhum código de instrumentação manual.
+    #  ✔ MemorySaver + thread_id mantém histórico da
+    #     sessão multi-turn automaticamente.
+    #  ✔ Tools lentas viram spans de alta latência —
+    #     o gargalo fica visível.
+    #  ✔ Compare com os módulos 03 (sessions manual) e
+    #     09 (tool calls manual) para entender a diferença.
+    #
+    #  🔍 MLflow UI → Experiment '11-langchain-agent':
+    #     trace tree completa do ciclo ReAct.
+    #
+    #  💡 EXERCÍCIO: Adicione uma nova tool que chama
+    #     uma API externa real e veja a latência no span.
+    # ────────────────────────────────────────────────────
 
 
 if __name__ == "__main__":

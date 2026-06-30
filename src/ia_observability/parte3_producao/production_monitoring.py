@@ -1,18 +1,26 @@
-"""Demonstracao de configuracoes de producao: async logging, sampling, feedback.
+"""
+[Parte 3 — Produção] Módulo 07: Monitoramento em Produção
+============================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Configurar tracing assíncrono (não bloquear a app)   ║
+║  • Controlar volume/custo com sampling por criticidade  ║
+║  • Coletar feedback humano (thumbs, scores)             ║
+║  • Operar observabilidade em escala sem quebrar         ║
+╚══════════════════════════════════════════════════════════╝
 
-Em producao, e essencial:
-1. Nao bloquear a aplicacao com logging de traces (async)
-2. Controlar volume/custo com sampling
-3. Coletar feedback de usuarios para melhorar qualidade
-4. Usar sampling diferenciado por criticidade da operacao
+CONCEITO-CHAVE:
+  Em produção, tracear 100% é caro e desnecessário. Use
+  sampling: 100% para operações críticas (pagamentos),
+  10% para alto volume (chats). Feedback humano fecha o
+  ciclo: "o que o usuário achou?" vira dado de melhoria.
 
-Este modulo reutiliza o agente LangChain do modulo 11 (build_agent/agent_invoke)
-e foca apenas em COMO operar isso em producao. Detalhe importante: com
-mlflow.langchain.autolog() os spans sao gerados automaticamente, entao o
-controle de sampling vai no WRAPPER da invocacao do agente (funcao decorada
-com @mlflow.trace), e nao em funcoes proprias instrumentadas manualmente.
+PRÉ-REQUISITOS:  Parte 1, Módulo 11 (langchain_agent)
+DIFICULDADE:     🔴 Avançado
+TEMPO ESTIMADO:  20 min
 
-Referencia: https://mlflow.org/docs/latest/genai/tracing/prod-tracing/
+--- Como usar ---
+  uv run monitoring    ou    make monitoring
 """
 
 import os
@@ -188,11 +196,28 @@ def main() -> None:
     print("=" * 60)
     demo_feedback_collection(agent)
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ Async logging: MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+    #     para não bloquear a aplicação.
+    #  ✔ Sampling: sampling_ratio_override=1.0 (100%)
+    #     para crítico, 0.1 (10%) para alto volume.
+    #  ✔ Feedback humano: mlflow.log_feedback() vincula
+    #     thumbs/scores/comentários ao trace.
+    #  ✔ AssessmentSource distingue review humano vs
+    #     avaliação automática.
+    #
+    #  🔍 MLflow UI → Experiment '07-production-monitoring':
+    #     veja os feedbacks anexados aos traces.
+    #
+    #  💡 EXERCÍCIO: Crie 3 níveis de sampling
+    #     (critical=1.0, normal=0.5, bulk=0.05) e
+    #     verifique quantos traces foram capturados.
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("Em PRODUCAO, tambem considere:")
-    print("  - mlflow-tracing (SDK leve, 95% menor que mlflow completo)")
-    print("  - Automatic evaluation com judges registrados")
-    print("  - Alerts baseados em metricas de qualidade")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 07-production-monitoring no MLflow UI")
     print("-" * 60)
 
 

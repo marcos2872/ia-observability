@@ -1,19 +1,30 @@
-"""Demonstracao de sessions multi-turn e tracking de usuarios.
+"""
+[Parte 3 — Produção] Módulo 03: Sessions e User Tracking
+==========================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Entender por que sessions são importantes em          ║
+║    aplicações multi-turno (chat, suporte)                ║
+║  • Vincular session_id e user_id aos traces do MLflow   ║
+║  • Buscar traces por usuário/sessão                      ║
+║  • Comparar abordagem manual vs LangChain (módulo 11)    ║
+╚══════════════════════════════════════════════════════════╝
 
-Sessions permitem agrupar traces de uma mesma conversa/interacao,
-facilitando a analise de fluxos conversacionais e comportamento do usuario.
+CONCEITO-CHAVE:
+  Em produção, um usuário faz múltiplas perguntas em uma
+  conversa. Cada pergunta gera um trace. Com session_id
+  você agrupa todos os traces de uma conversa; com user_id
+  você rastreia um usuário específico. Essencial para
+  auditoria e suporte.
 
-Funcionalidades demonstradas:
-- Associar traces a user_id e session_id
-- Conversa multi-turn com historico
-- Query de traces por sessao/usuario
+PRÉ-REQUISITOS:  Parte 1 (tracing + tokens)
+DIFICULDADE:     🟡 Médio
+TEMPO ESTIMADO:  15 min
 
-Nota didatica: aqui o historico e a sessao sao gerenciados MANUALMENTE
-(voce controla a lista de mensagens e o session_id). O modulo
-`langchain_agent.py` mostra a versao AUTOMATICA equivalente, onde o
-LangChain + MemorySaver cuidam disso.
+--- Como usar ---
+  uv run sessions    ou    make sessions
 
-Referencia: https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/
+Referência: https://mlflow.org/docs/latest/genai/tracing/quickstart/
 """
 
 import uuid
@@ -160,9 +171,27 @@ def main() -> None:
     print("=" * 60)
     demo_query_by_session()
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ session_id agrupa traces de uma mesma conversa.
+    #  ✔ user_id identifica quem fez a requisição.
+    #  ✔ mlflow.update_current_trace() vincula ambos
+    #     ao trace ativo.
+    #  ✔ mlflow.search_traces() com filtro por usuário
+    #     ou sessão para debugging.
+    #  ✔ Abordagem MANUAL: você gerencia histórico e IDs.
+    #    Compare com o módulo 11 (LangChain automático).
+    #
+    #  🔍 MLflow UI → Experiment '03-sessions': filtre
+    #     por metadata.mlflow.trace.session = '<id>'.
+    #
+    #  💡 EXERCÍCIO: Implemente um chat persistente que
+    #     salva o histórico em arquivo JSON entre execuções.
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("No MLflow UI, use o filtro de sessao para agrupar traces:")
-    print("  metadata.`mlflow.trace.session` = '<session-id>'")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 03-sessions no MLflow UI")
     print("-" * 60)
 
 

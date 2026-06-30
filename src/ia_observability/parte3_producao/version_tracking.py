@@ -1,14 +1,26 @@
-"""Demonstracao de version tracking com LoggedModel.
+"""
+[Parte 3 — Produção] Módulo 06: Version Tracking com LoggedModel
+==================================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Entender o conceito de versionamento de modelos      ║
+║  • Usar LoggedModel para registrar versões com metadados║
+║  • Comparar desempenho entre versões                     ║
+║  • Vincular traces à versão do modelo que os gerou       ║
+╚══════════════════════════════════════════════════════════╝
 
-LoggedModel permite:
-- Versionar combinacoes de codigo + configuracao + prompts
-- Vincular traces automaticamente a versoes da aplicacao
-- Comparar performance entre versoes no MLflow UI
+CONCEITO-CHAVE:
+  Você vai alterar prompts, modelos e parâmetros. Sem
+  versionamento, você não sabe qual versão gerou qual
+  resposta. LoggedModel registra cada versão com metadados
+  (prompt, temperatura, modelo) e vincula aos traces.
 
-Cenario: mesma aplicacao com diferentes prompts e temperaturas,
-avaliando qual configuracao produz melhores resultados.
+PRÉ-REQUISITOS:  Parte 1, Módulo 04 (evaluation)
+DIFICULDADE:     🟡 Médio
+TEMPO ESTIMADO:  15 min
 
-Referencia: https://mlflow.org/docs/latest/genai/version-tracking/
+--- Como usar ---
+  uv run versioning    ou    make versioning
 """
 
 import mlflow
@@ -103,12 +115,25 @@ def main() -> None:
         print("=" * 60)
         run_version(version["name"], version["system_prompt"], version["temperature"])
 
-    print("\n" + "-" * 60)
-    print("No MLflow UI -> Experiment '06-version-tracking':")
-    print("  - Cada versao aparece como um LoggedModel")
-    print("  - Traces estao vinculados a versao que os gerou")
-    print("  - Use a aba 'Models' para comparar versoes")
-    print("-" * 60)
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ LoggedModel registra versões do modelo com
+    #     metadados (prompt, temperatura, parâmetros).
+    #  ✔ Cada versão tem um run_id único e vinculável
+    #     aos traces gerados.
+    #  ✔ mlflow.search_runs() para comparar métricas
+    #     entre versões.
+    #  ✔ Essencial para responder "qual versão gerou
+    #     esta resposta?"
+    #
+    #  🔍 MLflow UI → Experiment '06-version-tracking':
+    #     compare métricas entre versões do modelo.
+    #
+    #  💡 EXERCÍCIO: Crie 3 versões com prompts diferentes
+    #     e compare as métricas de avaliação (reuse o
+    #     dataset do módulo 04).
+    # ────────────────────────────────────────────────────
 
 
 if __name__ == "__main__":

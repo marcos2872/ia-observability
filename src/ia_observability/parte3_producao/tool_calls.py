@@ -1,20 +1,26 @@
-"""Demonstracao de observabilidade de tool calls (function calling).
+"""
+[Parte 3 — Produção] Módulo 09: Tool Calling com Tracing Manual
+=================================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Entender o padrão AGENT → THINK → TOOL → OBSERVE    ║
+║  • Usar SpanType.TOOL para ferramentas individuais      ║
+║  • Ver latência e erro de cada tool call no trace       ║
+║  • Comparar implementação manual vs LangChain (mod 11)  ║
+╚══════════════════════════════════════════════════════════╝
 
-O MLflow rastreia automaticamente o fluxo completo de tool calling:
-- Requisicao do modelo com tools disponiveis
-- Decisao do modelo de chamar uma ou mais tools
-- Execucao de cada tool (span tipo TOOL)
-- Reenvio do resultado ao modelo
-- Resposta final
+CONCEITO-CHAVE:
+  Agentes que chamam ferramentas (APIs, bancos, busca) têm
+  múltiplos pontos de falha. SpanType.TOOL faz cada
+  ferramenta aparecer na aba "Tool Calls" do MLflow UI,
+  mostrando input, output e tempo de cada chamada.
 
-A aba 'Tool calls' no MLflow UI mostra metricas agregadas de uso de tools.
+PRÉ-REQUISITOS:  Parte 1, Módulo 03 (sessions)
+DIFICULDADE:     🔴 Avançado
+TEMPO ESTIMADO:  20 min
 
-Nota didatica: aqui implementamos o loop de tool calling MANUALMENTE
-(criando spans SpanType.TOOL, medindo latencia e tratando erros por tool).
-O modulo `langchain_agent.py` mostra a versao AUTOMATICA equivalente, onde
-o LangChain gerencia o loop e o autolog cria os spans sozinho.
-
-Referencia: https://mlflow.org/docs/latest/genai/tracing/
+--- Como usar ---
+  uv run toolcalls    ou    make toolcalls
 """
 
 import json
@@ -361,13 +367,29 @@ def main() -> None:
     print("=" * 60)
     demo_tool_failure()
 
+    # ────────────────────────────────────────────────────
+    #  ✅ RESUMO DO QUE APRENDEMOS NESTE MÓDULO
+    # ────────────────────────────────────────────────────
+    #  ✔ SpanType.TOOL faz cada ferramenta aparecer na
+    #     aba "Tool Calls" do MLflow UI.
+    #  ✔ O loop manual: AGENT → CHAT_MODEL → TOOL(s) →
+    #     CHAT_MODEL → resposta final.
+    #  ✔ tool.latency_ms e tool.error como atributos
+    #     para monitorar performance das tools.
+    #  ✔ Falhas de tool não quebram o trace — o erro
+    #     fica registrado no span com status ERROR.
+    #  ✔ Compare com módulo 11 (LangChain) para ver
+    #     a diferença entre manual e automático.
+    #
+    #  🔍 MLflow UI → Experiment '09-tool-calls': aba
+    #     "Tool calls" e trace tree com spans TOOL.
+    #
+    #  💡 EXERCÍCIO: Adicione uma nova tool "send_email"
+    #     e veja o span TOOL extra aparecer no trace.
+    # ────────────────────────────────────────────────────
     print("\n" + "-" * 60)
-    print("Abra o MLflow UI -> Experiment '09-tool-calls' para ver:")
-    print("  - Aba 'Tool calls' com metricas de uso de tools")
-    print("  - Trace tree: AGENT > CHAT_MODEL > TOOL(s) > CHAT_MODEL")
-    print("  - Inputs/outputs detalhados de cada tool execution")
-    print("  - Atributos 'tool.latency_ms' e 'tool.error' em cada span TOOL")
-    print("  - Span com status ERROR na demo de falha (check_inventory)")
+    print("✅ MÓDULO CONCLUÍDO! Resumo do aprendizado acima.")
+    print("  Experiment: 09-tool-calls no MLflow UI")
     print("-" * 60)
 
 
