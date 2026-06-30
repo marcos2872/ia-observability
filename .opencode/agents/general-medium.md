@@ -1,1 +1,0 @@
-/home/marcos/Projects/opencode-router-model/agents/general-medium.md
