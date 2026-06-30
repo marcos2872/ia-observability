@@ -1,33 +1,27 @@
-"""Demonstracao de Prompt Optimization: otimizar o SYSTEM prompt automaticamente.
+"""
+[Parte 4 — Avançado] Módulo 13: Prompt Optimization (GEPA + Metaprompting)
+=============================================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Entender otimização automática de prompts            ║
+║  • Usar GEPA (few-shot): aprende de dados de avaliação  ║
+║  • Usar Metaprompting (zero-shot): reestrutura sem      ║
+║    dados                                                 ║
+║  • Comparar prompt antes/depois e ver a melhora         ║
+╚══════════════════════════════════════════════════════════╝
 
-O MLflow otimiza um prompt registrado aprendendo com dados de avaliacao e
-metricas (scorers). Aqui otimizamos o SYSTEM prompt de um CLASSIFICADOR de
-mensagens de suporte (DUVIDA, BUG, RECLAMACAO, ELOGIO, SOLICITACAO).
+CONCEITO-CHAVE:
+  Em vez de ajustar o prompt manualmente por tentativa e
+  erro, algoritmos de otimização (GEPA, Metaprompting)
+  geram e testam variações automaticamente, aprendendo
+  com os resultados. É o "fecho do ciclo" de observabilidade.
 
-Por que classificacao? E um cenario onde a melhora fica EVIDENTE: com o system
-prompt vago ("Voce e um assistente.") o modelo responde em prosa e nem conhece
-as categorias -> score baixo. A otimizacao ensina o modelo, via system prompt, a
-escolher a categoria certa e responder APENAS o rotulo -> score alto.
+PRÉ-REQUISITOS:  Parte 2 + Módulo 10 (prompt_management)
+DIFICULDADE:     🔴 Avançado
+TEMPO ESTIMADO:  30 min (a otimização leva vários minutos)
 
-Padrao:
-    predict_fn(mensagem) -> usa o system prompt (otimizavel) + texto a classificar
-    optimize_prompts(predict_fn, train_data, prompt_uris, optimizer, scorers)
-
-Dois algoritmos sao demonstrados:
-- GEPA (GepaPromptOptimizer): refina o prompt iterativamente via reflexao do
-  LLM sobre falhas. Precisa de train_data e scorers (few-shot).
-- Metaprompting (MetaPromptOptimizer): reestrutura o prompt seguindo boas
-  praticas. Funciona em zero-shot (sem dados nem scorers).
-
-Sobre os scorers: usamos um scorer CODE-BASED (deterministico) que mede o acerto
-da classificacao. Vantagem didatica: nao depende de um LLM judge (que, com
-modelos pequenos, costuma devolver JSON fora do schema e quebrar a otimizacao).
-Para usar um LLM judge, veja o comentario em SCORERS.
-
-A reflexao do GEPA usa 'openai:/' do litellm apontando para o AI Gateway
-(OpenAI-compatible), configurado em config.py.
-
-Referencia: https://mlflow.org/docs/latest/genai/prompt-registry/optimize-prompts/
+--- Como usar ---
+  uv run prompt-opt    ou    make prompt-opt
 """
 
 import os

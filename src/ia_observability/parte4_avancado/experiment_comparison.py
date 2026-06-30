@@ -1,15 +1,25 @@
-"""Demonstracao de comparacao de configuracoes/modelos (benchmark).
+"""
+[Parte 4 — Avançado] Módulo 08: Benchmark e Comparação de Experimentos
+=========================================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Comparar múltiplas configurações lado a lado         ║
+║  • Executar avaliação idêntica sobre cada config        ║
+║  • Usar experimentos separados para cada config         ║
+║  • Tomar decisões baseadas em dados, não em intuição    ║
+╚══════════════════════════════════════════════════════════╝
 
-Este modulo executa o mesmo dataset de avaliacao contra diferentes
-configuracoes da aplicacao (prompts, temperaturas), permitindo
-comparar objetivamente qual configuracao produz melhores resultados.
+CONCEITO-CHAVE:
+  Como escolher entre modelo A e B? Entre temperatura 0.1
+  e 0.7? Benchmarking: rode a MESMA avaliação em múltiplas
+  configurações e compare as métricas lado a lado no UI.
 
-Cenario tipico:
-- Testar diferentes system prompts
-- Comparar temperaturas de geracao
-- Avaliar impacto de mudancas no pipeline
+PRÉ-REQUISITOS:  Parte 2 (evaluation + judges), Módulo 06
+DIFICULDADE:     🔴 Avançado
+TEMPO ESTIMADO:  20 min
 
-Referencia: https://mlflow.org/docs/latest/genai/eval-monitor/
+--- Como usar ---
+  uv run benchmark    ou    make benchmark
 """
 
 import mlflow

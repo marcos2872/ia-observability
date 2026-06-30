@@ -1,11 +1,27 @@
-"""Demonstracao de Prompt Registry: registrar, versionar e linkar prompts a traces.
+"""
+[Parte 4 — Avançado] Módulo 10: Prompt Registry e Versionamento
+==================================================================
+╔══════════════════════════════════════════════════════════╗
+║  OBJETIVOS DE APRENDIZADO                               ║
+║  • Usar o Prompt Registry do MLflow para registrar      ║
+║    e versionar prompts                                   ║
+║  • Vincular prompts a traces (qual versão gerou isso?)  ║
+║  • Atualizar prompts sem quebrar tracing de versões     ║
+║    anteriores                                            ║
+╚══════════════════════════════════════════════════════════╝
 
-O MLflow Prompt Registry permite:
-1. Registrar prompts com templates (variaveis {{nome}})
-2. Versionar prompts (v1, v2, ...) para comparacao
-3. Linkar prompts aos traces — no UI aparece qual prompt gerou qual resposta
+CONCEITO-CHAVE:
+  Prompt não é código, mas muda com frequência. Sem registry,
+  você não sabe qual versão do prompt gerou qual resposta.
+  O Prompt Registry versiona cada prompt e vincula a versão
+  usada em cada trace automaticamente.
 
-Referencia: https://mlflow.org/docs/latest/genai/prompt-registry/
+PRÉ-REQUISITOS:  Parte 1, Módulo 06 (version_tracking)
+DIFICULDADE:     🔴 Avançado
+TEMPO ESTIMADO:  20 min
+
+--- Como usar ---
+  uv run prompts    ou    make prompts
 """
 
 import mlflow
