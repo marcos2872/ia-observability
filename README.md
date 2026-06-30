@@ -2,6 +2,10 @@
 
 ![Observabilidade em IA](docs/images/Gemini_Generated_Image_6oaua56oaua56oau.png)
 
+[![Python 3.14](https://img.shields.io/badge/python-3.14-blue.svg)](https://docs.python.org/pt-br/3.14/)
+[![MLflow GenAI >= 3.10](https://img.shields.io/badge/mlflow%20genai-%3E%3D%203.10-blue)](https://mlflow.org/docs/latest/genai/)
+[![Gateway OpenAI](https://img.shields.io/badge/openai-compatible-gateway-brightgreen)](https://mlflow.org/docs/latest/genai/tracing/)
+
 Projeto **didatico** de observabilidade e benchmark de LLM usando [MLflow GenAI](https://mlflow.org/docs/latest/genai/).
 
 Cada modulo e um exemplo **autocontido** de uma funcionalidade do MLflow, do basico (tracing) ao avancado (otimizacao de prompts). Os modelos sao servidos pelo **MLflow AI Gateway** (endpoint compativel com OpenAI).
@@ -29,23 +33,57 @@ capturando o que acontece em cada passo. Os 4 pilares:
 
 ## Funcionalidades Demonstradas
 
-| # | Modulo | Funcionalidade | Comando |
-|---|--------|---------------|---------|
-| 01 | `tracing_basics` | Auto-tracing, `@mlflow.trace`, spans aninhados (RAG) | `uv run tracing` |
-| 02 | `token_usage` | Token usage por chamada, custo, attribution manual | `uv run tokens` |
-| 03 | `sessions` | Sessions multi-turn, user tracking, queries (manual) | `uv run sessions` |
-| 04 | `evaluation` | Benchmark com datasets + scorers built-in | `uv run evaluation` |
-| 05 | `judges` | LLM judges customizados + code-based scorers | `uv run judges` |
-| 06 | `version_tracking` | Versionamento com LoggedModel | `uv run versioning` |
-| 07 | `production_monitoring` | Async logging, sampling, feedback | `uv run monitoring` |
-| 08 | `experiment_comparison` | Comparacao de configs lado a lado | `uv run benchmark` |
-| 09 | `tool_calls` | Tool calling com observabilidade (AGENT/TOOL spans, manual) | `uv run toolcalls` |
-| 10 | `prompt_management` | Prompt Registry: registrar, versionar, linkar a traces | `uv run prompts` |
-| 11 | `langchain_agent` | Tool calling + sessions via LangChain (automatico) | `uv run langchain-agent` |
-| 12 | `datasets_demo` | Evaluation datasets: subir + buscar (requer backend SQL) | `uv run datasets` |
-| 13 | `prompt_optimization` | Otimizacao de prompts: GEPA + Metaprompting | `uv run prompt-opt` |
+| # | Módulo | Parte | Dificuldade | Funcionalidade | Comando |
+|---|--------|-------|-------------|---------------|---------|
+| 01 | `tracing_basics` | 1 - Fundamentos | 🟢 | Auto-tracing, `@mlflow.trace`, spans aninhados (RAG) | `uv run tracing` |
+| 02 | `token_usage` | 1 - Fundamentos | 🟢 | Token usage por chamada, custo, attribution manual | `uv run tokens` |
+| 03 | `sessions` | 3 - Produção | 🟡 | Sessions multi-turn, user tracking, queries (manual) | `uv run sessions` |
+| 04 | `evaluation` | 2 - Avaliação | 🟡 | Benchmark com datasets + scorers built-in | `uv run evaluation` |
+| 05 | `judges` | 2 - Avaliação | 🟡 | LLM judges customizados + code-based scorers | `uv run judges` |
+| 06 | `version_tracking` | 3 - Produção | 🟡 | Versionamento com LoggedModel | `uv run versioning` |
+| 07 | `production_monitoring` | 3 - Produção | 🔴 | Async logging, sampling, feedback | `uv run monitoring` |
+| 08 | `experiment_comparison` | 4 - Avançado | 🔴 | Comparação de configs lado a lado | `uv run benchmark` |
+| 09 | `tool_calls` | 3 - Produção | 🔴 | Tool calling com observabilidade (AGENT/TOOL spans, manual) | `uv run toolcalls` |
+| 10 | `prompt_management` | 4 - Avançado | 🔴 | Prompt Registry: registrar, versionar, linkar a traces | `uv run prompts` |
+| 11 | `langchain_agent` | 3 - Produção | 🟡 | Tool calling + sessions via LangChain (automático) | `uv run langchain-agent` |
+| 12 | `datasets_demo` | 2 - Avaliação | 🟡 | Evaluation datasets: subir + buscar (requer backend SQL) | `uv run datasets` |
+| 13 | `prompt_optimization` | 4 - Avançado | 🔴 | Otimização de prompts: GEPA + Metaprompting | `uv run prompt-opt` |
 
-> Os modulos 03/09 (manual) tem equivalente automatico no 11 (`langchain_agent`). Compare-os para entender as duas abordagens.
+> 🟢 Fácil · 🟡 Médio · 🔴 Avançado
+
+## 🗺️ Qual caminho seguir?
+
+**Sou novo no assunto:** comece pela **Parte 1 — Fundamentos** e siga em ordem crescente.
+
+**Já conheço tracing:** vá direto para **Parte 2 — Avaliação** (módulos 04, 05, 12).
+
+**Quero ir para produção:** **Parte 3 — Produção** (módulos 03, 06, 11, 09, 07).
+
+**Estou otimizando prompts/modelos:** **Parte 4 — Avançado** (módulos 08, 10, 13).
+
+📖 Veja o [Roteiro de Estudos Completo](docs/learning-path.md) com exercícios e checkpoints.
+
+### Mapa de progressão
+
+```mermaid
+flowchart LR
+    subgraph P1[Parte 1 - Fundamentos 🟢]
+        A[01 Tracing] --> B[02 Tokens]
+    end
+    subgraph P2[Parte 2 - Avaliação 🟡]
+        C[04 Scorers] --> D[05 Judges] --> E[12 Datasets]
+    end
+    subgraph P3[Parte 3 - Produção 🟡🔴]
+        F[03 Sessions] --> G[06 Versionamento]
+        G --> H[11 LangChain]
+        H --> I[09 Tool Calls]
+        I --> J[07 Monitoring]
+    end
+    subgraph P4[Parte 4 - Avançado 🔴]
+        K[08 Benchmark] --> L[10 Prompts] --> M[13 Otimização]
+    end
+    P1 --> P2 --> P3 --> P4
+```
 
 ## Requisitos
 
@@ -111,20 +149,24 @@ Cada modulo cria um experiment separado e numerado (ex: `01-tracing-basics`, `04
 
 ```
 src/ia_observability/
-├── config.py                 # Configuracao centralizada (.env + MLflow + Gateway client)
-├── tracing_basics.py         # 01 - Auto-tracing, decorators, spans aninhados
-├── token_usage.py            # 02 - Token counting, custo, span-level usage
-├── sessions.py               # 03 - Multi-turn conversations, user/session tracking
-├── evaluation.py             # 04 - mlflow.genai.evaluate() com scorers built-in
-├── judges.py                 # 05 - Custom Guidelines judges + code-based scorers
-├── version_tracking.py       # 06 - LoggedModel, versionamento por config
-├── production_monitoring.py  # 07 - Async, sampling, feedback collection
-├── experiment_comparison.py  # 08 - Benchmark comparativo de configuracoes
-├── tool_calls.py             # 09 - Tool calling com spans AGENT/TOOL/CHAT_MODEL
-├── prompt_management.py      # 10 - Prompt Registry: registrar, versionar, linkar
-├── langchain_agent.py        # 11 - Tool calling + sessions via LangChain (automatico)
-├── datasets_demo.py          # 12 - Evaluation datasets: subir + buscar (backend SQL)
-└── prompt_optimization.py    # 13 - Prompt optimization: GEPA + Metaprompting
+├── config.py                          # Configuração centralizada
+├── parte1_fundamentos/                # 🟢 Tracing + Tokens
+│   ├── tracing_basics.py              # 01 - Auto-tracing, spans
+│   └── token_usage.py                 # 02 - Tokens e custo
+├── parte2_avaliacao/                  # 🟡 Evaluation + Judges + Datasets
+│   ├── evaluation.py                  # 04 - Scorers built-in
+│   ├── judges.py                      # 05 - LLM judges customizados
+│   └── datasets_demo.py               # 12 - Evaluation datasets
+├── parte3_producao/                   # 🟡🔴 Sessions + Tools + Monitoring
+│   ├── sessions.py                    # 03 - Sessões multi-turn
+│   ├── version_tracking.py            # 06 - Versionamento
+│   ├── production_monitoring.py       # 07 - Sampling, feedback
+│   ├── tool_calls.py                  # 09 - Tool calling manual
+│   └── langchain_agent.py             # 11 - Agente LangChain
+└── parte4_avancado/                   # 🔴 Benchmark + Prompts + Otimização
+    ├── experiment_comparison.py       # 08 - Benchmark de configs
+    ├── prompt_management.py           # 10 - Prompt registry
+    └── prompt_optimization.py         # 13 - GEPA + Metaprompting
 ```
 
 ## Como os modelos sao acessados
