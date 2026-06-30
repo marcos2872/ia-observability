@@ -5,6 +5,10 @@
 > Material de apresentação baseado no projeto `ia-observability`. Todos os trechos de
 > código são reais e podem ser rodados ao vivo via `make <target>` ou `uv run <demo>`.
 
+> **Nota sobre organização:** Os módulos estão organizados em 4 partes didáticas
+> na estrutura de pastas. Consulte o [Roteiro de Estudos](learning-path.md) para
+> a ordem recomendada de execução.
+
 ---
 
 ## Roteiro de 1 hora
