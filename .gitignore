@@ -16,3 +16,6 @@ wheels/
 mlruns/
 mlartifacts/
 .opencode
+
+# Worktrees
+.worktrees/
