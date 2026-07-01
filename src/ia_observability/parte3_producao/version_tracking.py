@@ -24,8 +24,9 @@ TEMPO ESTIMADO:  15 min
 """
 
 import mlflow
+from openai import APIError, APITimeoutError, RateLimitError
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
+from ia_observability.config import MODEL_NAME, apply_patches, get_client, setup_mlflow
 
 
 def run_version(version_name: str, system_prompt: str, temperature: float) -> None:
@@ -63,15 +64,25 @@ def run_version(version_name: str, system_prompt: str, temperature: float) -> No
                         "app.model": MODEL_NAME,
                     },
                 )
-                response = client.chat.completions.create(
-                    model=MODEL_NAME,
-                    messages=[
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": q},
-                    ],
-                    temperature=temperature,
-                )
-                answer = response.choices[0].message.content
+                try:
+                    response = client.chat.completions.create(
+                        model=MODEL_NAME,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": q},
+                        ],
+                        temperature=temperature,
+                    )
+                    answer = response.choices[0].message.content or "(resposta vazia)"
+                except (APITimeoutError, RateLimitError) as e:
+                    print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                    answer = "(erro: servidor temporariamente indisponivel)"
+                except APIError as e:
+                    print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                    answer = f"(erro na chamada: {str(e)})"
+                except Exception as e:
+                    print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                    answer = "(erro inesperado)"
 
             print(f"    Q: {q}")
             print(f"    A: {answer[:100]}...\n")
@@ -79,6 +90,7 @@ def run_version(version_name: str, system_prompt: str, temperature: float) -> No
 
 def main() -> None:
     """Executa multiplas versoes para comparacao no MLflow UI."""
+    apply_patches()
     setup_mlflow("06-version-tracking")
     mlflow.openai.autolog()
 

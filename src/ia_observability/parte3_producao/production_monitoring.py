@@ -27,10 +27,11 @@ import os
 import uuid
 
 import mlflow
+from langchain.agents import AgentExecutor
 from mlflow.entities import AssessmentSource
 
 from ia_observability.langchain_agent import agent_invoke, build_agent
-from ia_observability.config import setup_mlflow
+from ia_observability.config import apply_patches, setup_mlflow
 
 
 def show_production_config() -> None:
@@ -68,7 +69,7 @@ def show_production_config() -> None:
 
 
 @mlflow.trace(sampling_ratio_override=1.0)
-def critical_agent_call(agent, query: str, user_id: str, session_id: str) -> str:
+def critical_agent_call(agent: AgentExecutor, query: str, user_id: str, session_id: str) -> str:
     """Operacao critica - SEMPRE traced (100% sampling).
 
     Use sampling_ratio_override=1.0 para operacoes que precisam
@@ -78,7 +79,7 @@ def critical_agent_call(agent, query: str, user_id: str, session_id: str) -> str
 
 
 @mlflow.trace(sampling_ratio_override=0.1)
-def high_volume_agent_call(agent, query: str, user_id: str, session_id: str) -> str:
+def high_volume_agent_call(agent: AgentExecutor, query: str, user_id: str, session_id: str) -> str:
     """Operacao de alto volume - sampling reduzido (10%).
 
     Para endpoints de alto trafego, capture apenas uma amostra.
@@ -92,7 +93,7 @@ def high_volume_agent_call(agent, query: str, user_id: str, session_id: str) -> 
 # ---------------------------------------------------------------------------
 
 
-def demo_feedback_collection(agent) -> None:
+def demo_feedback_collection(agent: AgentExecutor) -> None:
     """Demonstra coleta de feedback humano em traces.
 
     Em producao, feedback pode vir de:
@@ -152,6 +153,7 @@ def demo_feedback_collection(agent) -> None:
 
 def main() -> None:
     """Executa demos de configuracao de producao sobre um agente LangChain."""
+    apply_patches()
     setup_mlflow("07-production-monitoring")
     mlflow.langchain.autolog()
 

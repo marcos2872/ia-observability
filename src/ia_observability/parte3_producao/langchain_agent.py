@@ -27,12 +27,11 @@ TEMPO ESTIMADO:  20 min
 
 import asyncio
 import json
-import time
 import uuid
 from typing import AsyncGenerator
 
 import mlflow
-from langchain.agents import create_agent
+from langchain.agents import AgentExecutor, create_agent
 from langchain_core.messages import (
     AIMessageChunk,
     BaseMessage,
@@ -45,7 +44,10 @@ from langchain_openai import ChatOpenAI
 from langgraph.config import get_stream_writer
 from mlflow.entities import SpanType
 
-from ia_observability.config import MLFLOW_GATEWAY_URL, MODEL_NAME, setup_mlflow
+from ia_observability.config import MLFLOW_GATEWAY_URL, MODEL_NAME, apply_patches, setup_mlflow
+from ia_observability._tools import get_weather, search_docs, calculate, check_inventory
+
+
 
 # ---------------------------------------------------------------------------
 # Event helpers (mesmo padrao do production keepee-rag)
@@ -83,21 +85,9 @@ def get_weather(city: str, unit: str = "celsius") -> dict:
     """
     writer = get_stream_writer()
     writer(f"Consultando previsao do tempo para {city}...")
-
-    data = {
-        "Sao Paulo": {"temp": 22, "condition": "Parcialmente nublado"},
-        "Rio de Janeiro": {"temp": 28, "condition": "Ensolarado"},
-        "Curitiba": {"temp": 15, "condition": "Chuva leve"},
-    }
-    weather = data.get(city, {"temp": 20, "condition": "Desconhecido"})
-    result = {
-        "city": city,
-        "temperature": weather["temp"],
-        "unit": unit,
-        "condition": weather["condition"],
-    }
+    result = get_weather(city, unit)
     writer(
-        f"Previsao para {city}: {weather['temp']}°{unit[0].upper()}, {weather['condition']}"
+        f"Previsao para {city}: {result.get('temp')}{unit[0].upper()}, {result.get('condition')}"
     )
     return result
 
@@ -112,31 +102,7 @@ def search_docs(query: str, max_results: int = 3) -> list[dict]:
     """
     writer = get_stream_writer()
     writer(f"Buscando documentos sobre '{query}'...")
-
-    docs = [
-        {
-            "title": "MLflow Tracing Quickstart",
-            "snippet": "Auto-tracing captura chamadas automaticamente...",
-        },
-        {
-            "title": "Token Usage Tracking",
-            "snippet": "MLflow rastreia input/output tokens por span...",
-        },
-        {
-            "title": "Evaluation com Scorers",
-            "snippet": "Use mlflow.genai.evaluate() com scorers built-in...",
-        },
-        {
-            "title": "Tool Calling Observability",
-            "snippet": "SpanType.TOOL permite rastrear execucao de tools...",
-        },
-    ]
-    filtered = [
-        d
-        for d in docs
-        if query.lower() in d["title"].lower() or query.lower() in d["snippet"].lower()
-    ]
-    results = filtered[:max_results] if filtered else docs[:max_results]
+    results = search_docs(query, max_results)
     writer(f"Encontrados {len(results)} resultados para '{query}'")
     return results
 
@@ -150,16 +116,9 @@ def calculate(expression: str) -> dict:
     """
     writer = get_stream_writer()
     writer(f"Calculando: {expression}...")
-
-    allowed = set("0123456789+-*/.(). ")
-    if not all(c in allowed for c in expression):
-        return {"error": "Expressao invalida", "expression": expression}
-    try:
-        result = eval(expression)  # noqa: S307 - apenas operacoes numericas
-        writer(f"Resultado: {result}")
-        return {"expression": expression, "result": result}
-    except Exception as e:
-        return {"error": str(e), "expression": expression}
+    result = calculate(expression)
+    writer(f"Resultado: {result}")
+    return result
 
 
 @tool
@@ -171,12 +130,11 @@ def check_inventory(product: str) -> str:
     """
     writer = get_stream_writer()
     writer(f"Consultando estoque do produto '{product}'...")
-    # Simula latencia alta seguida de falha
-    time.sleep(2.5)
-    writer(f"Timeout — API de estoque indisponivel para '{product}'")
-    return (
-        f"ERRO: Timeout ao consultar estoque do produto '{product}' - API indisponivel"
-    )
+    try:
+        return check_inventory(product)
+    except TimeoutError as e:
+        writer(f"Timeout — API de estoque indisponivel para '{product}'")
+        return f"ERRO: Timeout ao consultar estoque do produto '{product}' - API indisponivel"
 
 
 # Lista de todas as tools disponiveis
@@ -192,6 +150,13 @@ ALL_TOOLS = [get_weather, search_docs, calculate, check_inventory]
 # ---------------------------------------------------------------------------
 
 _sessions: dict[str, list[BaseMessage]] = {}
+
+
+def clear_sessions() -> None:
+    """Limpa o cache de sessoes. Chamado no inicio de cada demo."""
+    _sessions.clear()
+
+
 _SYSTEM_PROMPT = (
     "Voce e um assistente que usa tools quando necessario. "
     "Responda em portugues de forma concisa."
@@ -203,7 +168,7 @@ _SYSTEM_PROMPT = (
 # ---------------------------------------------------------------------------
 
 
-def build_agent():
+def build_agent() -> AgentExecutor:
     """Constroi o agente LangChain com tools (sem checkpointer).
 
     Usa create_agent do langchain.agents — exatamente como no production
@@ -276,7 +241,7 @@ def _collect_messages(
 
 
 async def agent_invoke_stream(
-    agent,
+    agent: AgentExecutor,
     query: str,
     user_id: str,
     session_id: str,
@@ -325,6 +290,7 @@ async def agent_invoke_stream(
         # Vincula user e session ao trace ANTES do stream (igual production)
         mlflow.update_current_trace(session_id=session_id, user=user_id)
 
+        stream_error = None
         try:
             async for mode, data in agent.astream(
                 {"messages": input_messages},
@@ -367,39 +333,47 @@ async def agent_invoke_stream(
                 else:
                     raw_chunks.append(chunk)
 
+        except Exception as exc:
+            stream_error = exc
+            import traceback
+
+            traceback.print_exc()
+            yield make_event("error", {"error": str(exc)[:200]})
         finally:
-            pass  # Garante que o span seja fechado mesmo em erro
+            # Garante que o span receba outputs mesmo em caso de erro
+            # (as linhas abaixo executam tanto no sucesso quanto no erro)
+            # Reconstroi mensagens do historico (funciona mesmo se vazio no erro)
+            new_messages = _collect_messages(
+                raw_chunks, accumulated_response, tool_logs_by_id, trace_id=trace_id
+            )
+            _sessions[session_id] = chat_history + new_messages
 
-        # Reconstroi mensagens do historico (pos-stream, igual production)
-        new_messages = _collect_messages(
-            raw_chunks, accumulated_response, tool_logs_by_id, trace_id=trace_id
-        )
-        _sessions[session_id] = chat_history + new_messages
+            # Seta tags no trace apos o stream
+            mlflow.update_current_trace(
+                tags={
+                    "provider": provider,
+                    "model_name": model_name,
+                    "stream_error": str(stream_error is not None),
+                    "new_messages": str(len(new_messages)),
+                    "session_id": session_id,
+                }
+            )
 
-        # Seta tags no trace apos o stream
-        mlflow.update_current_trace(
-            tags={
-                "provider": provider,
-                "model_name": model_name,
-                "new_messages": str(len(new_messages)),
-                "session_id": session_id,
-            }
-        )
-
-        trace_span.set_outputs(
-            {
-                "response": accumulated_response[:500]
-                if accumulated_response
-                else None,
-                "trace_id": trace_id,
-            }
-        )
+            trace_span.set_outputs(
+                {
+                    "response": accumulated_response[:500]
+                    if accumulated_response
+                    else None,
+                    "trace_id": trace_id,
+                    "error": str(stream_error)[:200] if stream_error else None,
+                }
+            )
 
     # Evento done com trace_id (igual production make_event("done", trace_id))
     yield make_event("done", trace_id or "")
 
 
-def _extract_text(content) -> str:
+def _extract_text(content: str | list) -> str:
     """Normaliza content para string pura.
 
     O LangChain pode retornar content como string simples ou como lista de
@@ -454,8 +428,9 @@ async def _consume_stream(agen: AsyncGenerator[str, None]) -> str:
 # ---------------------------------------------------------------------------
 
 
-async def demo_single_tool(agent) -> None:
+async def demo_single_tool(agent: AgentExecutor) -> None:
     """Demonstra chamada com uma unica tool (weather) em streaming."""
+    clear_sessions()
     session_id = f"single-tool-{uuid.uuid4().hex[:8]}"
     print("  Pergunta: 'Qual a previsao do tempo em Sao Paulo?'")
     stream = agent_invoke_stream(
@@ -465,8 +440,9 @@ async def demo_single_tool(agent) -> None:
     print()
 
 
-async def demo_multi_tool(agent) -> None:
+async def demo_multi_tool(agent: AgentExecutor) -> None:
     """Demonstra chamada que aciona multiplas tools em streaming."""
+    clear_sessions()
     session_id = f"multi-tool-{uuid.uuid4().hex[:8]}"
     print(
         "  Pergunta: 'Busque sobre tracing no MLflow e me diga a temperatura em Curitiba'"
@@ -481,13 +457,14 @@ async def demo_multi_tool(agent) -> None:
     print()
 
 
-async def demo_multi_turn_session(agent) -> None:
+async def demo_multi_turn_session(agent: AgentExecutor) -> None:
     """Demonstra conversa multi-turn com memoria de sessao.
 
     O historico e mantido em dict in-memory (_sessions), reconstruido a
     partir dos chunks do streaming — mesma abordagem do production
     keepee-rag (que persiste em banco SQL).
     """
+    clear_sessions()
     user_id = "alice-dev"
     session_id = f"multiturn-{uuid.uuid4().hex[:8]}"
 
@@ -509,8 +486,9 @@ async def demo_multi_turn_session(agent) -> None:
         print()
 
 
-async def demo_multiple_users(agent) -> None:
+async def demo_multiple_users(agent: AgentExecutor) -> None:
     """Demonstra multiplos usuarios com sessoes independentes em streaming."""
+    clear_sessions()
     users = [
         {"user_id": "alice-dev", "question": "Quanto e 2048 * 16 + 99?"},
         {"user_id": "bob-ops", "question": "Qual a previsao do tempo em Curitiba?"},
@@ -527,12 +505,13 @@ async def demo_multiple_users(agent) -> None:
         print()
 
 
-async def demo_tool_failure(agent) -> None:
+async def demo_tool_failure(agent: AgentExecutor) -> None:
     """Demonstra falha de tool (timeout simulado) em streaming.
 
     A tool returna string de erro — o modelo recebe e informa o usuario.
     O stream_mode="custom" captura os logs de progresso (inclusive o timeout).
     """
+    clear_sessions()
     session_id = f"failure-{uuid.uuid4().hex[:8]}"
     print("  Pergunta: 'Verifique o estoque do produto Notebook Dell XPS'")
     stream = agent_invoke_stream(
@@ -545,12 +524,13 @@ async def demo_tool_failure(agent) -> None:
     print()
 
 
-async def demo_feedback(agent) -> None:
+async def demo_feedback(agent: AgentExecutor) -> None:
     """Demonstra registro de feedback humano em um trace existente.
 
     Usa o trace_id capturado no evento "done" para registrar avaliacao
     via mlflow.log_feedback() — mesmo padrao do feedback.py do production.
     """
+    clear_sessions()
     session_id = f"feedback-{uuid.uuid4().hex[:8]}"
     captured_trace_id: str | None = None
 
@@ -601,6 +581,7 @@ async def demo_feedback(agent) -> None:
 
 def main() -> None:
     """Executa todas as demos de LangChain agent com streaming + MLflow."""
+    apply_patches()
     setup_mlflow("11-langchain-agent")
     mlflow.langchain.autolog(log_traces=True)
 

@@ -32,7 +32,14 @@ import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.scorers import Guidelines, scorer
 
-from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_judge_timeout, setup_mlflow
+from ia_observability.config import (
+    JUDGE_MODEL,
+    MODEL_NAME,
+    apply_patches,
+    make_predict_fn,
+    patch_judge_timeout,
+    setup_mlflow,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -41,7 +48,7 @@ from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_j
 
 
 @scorer
-def response_length_check(inputs, outputs) -> Feedback:
+def response_length_check(inputs: dict | None, outputs: str | None) -> Feedback:
     """Verifica se a resposta tem tamanho adequado (10-500 chars).
 
     Code-based scorers retornam Feedback com value (bool/float) e rationale.
@@ -59,7 +66,7 @@ def response_length_check(inputs, outputs) -> Feedback:
 
 
 @scorer
-def no_hallucination_keywords(inputs, outputs) -> Feedback:
+def no_hallucination_keywords(inputs: dict | None, outputs: str | None) -> Feedback:
     """Detecta possiveis marcadores de alucinacao na resposta.
 
     Verifica se a resposta contem frases que indicam incerteza fingida
@@ -91,7 +98,7 @@ def no_hallucination_keywords(inputs, outputs) -> Feedback:
 
 
 @scorer
-def contains_actionable_info(inputs, outputs) -> Feedback:
+def contains_actionable_info(inputs: dict | None, outputs: str | None) -> Feedback:
     """Verifica se a resposta contem informacao acionavel.
 
     Para perguntas do tipo 'como fazer X', a resposta deve conter
@@ -126,37 +133,13 @@ def contains_actionable_info(inputs, outputs) -> Feedback:
 
 
 # ---------------------------------------------------------------------------
-# Predict function
-# ---------------------------------------------------------------------------
-
-
-def predict_fn(question: str) -> str:
-    """Predicao para avaliacao com judges."""
-    client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Voce e um assistente tecnico de MLOps. "
-                    "Sempre forneça instrucoes claras e acionaveis quando perguntado 'como'. "
-                    "Cite fontes quando possivel. Responda em portugues."
-                ),
-            },
-            {"role": "user", "content": question},
-        ],
-    )
-    return response.choices[0].message.content
-
-
-# ---------------------------------------------------------------------------
 # Entrypoint
 # ---------------------------------------------------------------------------
 
 
 def main() -> None:
     """Executa avaliacao com judges customizados."""
+    apply_patches()
     setup_mlflow("05-judges")
     patch_judge_timeout(300)
     mlflow.openai.autolog()
@@ -168,6 +151,14 @@ def main() -> None:
         {"inputs": {"question": "Como avaliar a qualidade de um agente de IA?"}},
         {"inputs": {"question": "O MLflow suporta monitoramento em producao?"}},
     ]
+    predict_fn = make_predict_fn(
+        (
+            "Voce e um assistente tecnico de MLOps. "
+            "Sempre forneça instrucoes claras e acionaveis quando perguntado 'como'. "
+            "Cite fontes quando possivel. Responda em portugues."
+        ),
+        0.5,
+    )
 
     print("=" * 60)
     print("AVALIACAO COM JUDGES CUSTOMIZADOS")

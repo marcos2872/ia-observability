@@ -25,9 +25,11 @@ TEMPO ESTIMADO:  20 min
 """
 
 import mlflow
+from openai import APIError, APITimeoutError, RateLimitError
 
 from ia_observability.config import (
     MODEL_NAME,
+    apply_patches,
     get_client,
     setup_mlflow,
 )
@@ -100,14 +102,24 @@ def ask_with_prompt(
     user_content = user_prompt.format(topic=topic)
 
     client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": system_prompt.template},
-            {"role": "user", "content": user_content},
-        ],
-    )
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": system_prompt.template},
+                {"role": "user", "content": user_content},
+            ],
+        )
+        return response.choices[0].message.content or "(resposta vazia)"
+    except (APITimeoutError, RateLimitError) as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return "(erro: servidor temporariamente indisponivel)"
+    except APIError as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return f"(erro na chamada: {str(e)})"
+    except Exception as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return "(erro inesperado)"
 
 
 # ---------------------------------------------------------------------------
@@ -139,6 +151,7 @@ def demo_compare_versions(topic: str) -> None:
 
 def main() -> None:
     """Executa todas as demos de prompt management."""
+    apply_patches()
     setup_mlflow("10-prompt-management")
 
     print("=" * 60)

@@ -30,8 +30,9 @@ Referência: https://mlflow.org/docs/latest/genai/tracing/quickstart/
 import uuid
 
 import mlflow
+from openai import APIError, APITimeoutError, RateLimitError
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
+from ia_observability.config import MODEL_NAME, apply_patches, get_client, setup_mlflow
 
 
 @mlflow.trace
@@ -53,11 +54,21 @@ def chat_turn(messages: list[dict], user_id: str, session_id: str) -> str:
     mlflow.update_current_trace(session_id=session_id, user=user_id)
 
     client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=messages,
-    )
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=messages,
+        )
+        return response.choices[0].message.content or "(resposta vazia)"
+    except (APITimeoutError, RateLimitError) as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return "(erro: servidor temporariamente indisponivel)"
+    except APIError as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return f"(erro na chamada: {str(e)})"
+    except Exception as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return "(erro inesperado)"
 
 
 def demo_multi_turn_session() -> None:
@@ -153,6 +164,7 @@ def demo_query_by_session() -> None:
 
 def main() -> None:
     """Executa todas as demos de sessions."""
+    apply_patches()
     setup_mlflow("03-sessions")
     mlflow.openai.autolog()
 

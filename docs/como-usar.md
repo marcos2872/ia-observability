@@ -48,7 +48,7 @@ cp .env.example .env
 | Variável | Para que serve |
 |----------|----------------|
 | `mlflow_url` | Tracking server do MLflow (use backend **SQL** para o módulo `datasets`) |
-| `mlflow_openia_url` | Base URL do AI Gateway (OpenAI-compatible) |
+| `mlflow_openai_url` | Base URL do AI Gateway (OpenAI-compatible) |
 | `mlflow_model` | Modelo usado para inferência |
 | `mlflow_judge_model` | Modelo usado por judges/scorers e pela reflexão do GEPA (pode ser diferente do de inferência) |
 
@@ -56,7 +56,7 @@ Exemplo:
 
 ```bash
 mlflow_url=http://localhost:5000/
-mlflow_openia_url=http://localhost:5000/gateway/mlflow/v1
+mlflow_openai_url=http://localhost:5000/gateway/mlflow/v1
 mlflow_model=qwen3.5-9b
 mlflow_judge_model=qwen3.5-9b
 ```

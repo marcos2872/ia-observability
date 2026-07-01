@@ -27,8 +27,9 @@ Referência: https://mlflow.org/docs/latest/genai/tracing/token-usage-cost/
 """
 
 import mlflow
+from openai import APIError, APITimeoutError, RateLimitError
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
+from ia_observability.config import MODEL_NAME, apply_patches, get_client, setup_mlflow
 
 # Pricing customizado para modelo self-hosted (USD por token)
 # Ajuste conforme custo real de infra (GPU, energia, etc.)
@@ -36,7 +37,7 @@ CUSTOM_INPUT_COST_PER_TOKEN = 0.000001  # $1.00 / 1M input tokens
 CUSTOM_OUTPUT_COST_PER_TOKEN = 0.000002  # $2.00 / 1M output tokens
 
 
-def _set_usage_and_cost(span, usage) -> None:
+def _set_usage_and_cost(span: mlflow.Span, usage: dict) -> None:
     """Seta token usage E custo customizado em um span.
 
     Padrao recomendado para modelos self-hosted sem pricing
@@ -99,12 +100,22 @@ def demo_automatic_token_tracking() -> None:
 
     for prompt in prompts:
         with mlflow.start_span(name="llm_call_with_cost") as span:
-            response = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            # Seta token usage + custo no span (modelo self-hosted)
-            _set_usage_and_cost(span, response.usage)
+            try:
+                response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[{"role": "user", "content": prompt}],
+                )
+                # Seta token usage + custo no span (modelo self-hosted)
+                _set_usage_and_cost(span, response.usage)
+            except (APITimeoutError, RateLimitError) as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                continue
+            except APIError as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                continue
+            except Exception as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                continue
 
     # Flush async logging antes de buscar traces
     mlflow.flush_trace_async_logging()
@@ -154,27 +165,47 @@ def demo_span_level_usage() -> None:
     def multi_step_pipeline() -> str:
         # Passo 1: Classificacao
         with mlflow.start_span(name="classify") as span:
-            classification = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": "Classifique o topico: tech, business, science."},
-                    {"role": "user", "content": "Como funciona o tracing em MLflow?"},
-                ],
-            )
-            _set_usage_and_cost(span, classification.usage)
-        topic = classification.choices[0].message.content
+            try:
+                classification = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": "Classifique o topico: tech, business, science."},
+                        {"role": "user", "content": "Como funciona o tracing em MLflow?"},
+                    ],
+                )
+                _set_usage_and_cost(span, classification.usage)
+            except (APITimeoutError, RateLimitError) as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return "(resposta indisponivel por erro do modelo)"
+            except APIError as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return f"(erro na chamada: {str(e)})"
+            except Exception as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return "(erro inesperado)"
+        topic = classification.choices[0].message.content or "(categoria indisponivel)"
 
         # Passo 2: Resposta baseada na classificacao
         with mlflow.start_span(name="answer") as span:
-            answer = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": f"Voce e especialista em {topic}. Responda brevemente."},
-                    {"role": "user", "content": "Como funciona o tracing em MLflow?"},
-                ],
-            )
-            _set_usage_and_cost(span, answer.usage)
-        return answer.choices[0].message.content
+            try:
+                answer = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=[
+                        {"role": "system", "content": f"Voce e especialista em {topic}. Responda brevemente."},
+                        {"role": "user", "content": "Como funciona o tracing em MLflow?"},
+                    ],
+                )
+                _set_usage_and_cost(span, answer.usage)
+                return answer.choices[0].message.content or "(resposta vazia)"
+            except (APITimeoutError, RateLimitError) as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return "(erro: servidor temporariamente indisponivel)"
+            except APIError as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return f"(erro na chamada: {str(e)})"
+            except Exception as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return "(erro inesperado)"
 
     result = multi_step_pipeline()
     print(f"  Pipeline result: {result[:100]}...\n")
@@ -251,6 +282,7 @@ def demo_manual_token_attribution() -> str:
 
 def main() -> None:
     """Executa todas as demos de token usage."""
+    apply_patches()
     setup_mlflow("02-token-usage")
 
     print("=" * 60)

@@ -16,18 +16,18 @@ dependencies = [
 
 [project.scripts]
 tracing = "ia_observability.parte1_fundamentos.tracing_basics:main"
-tokens = "ia_observability.parte1_fundamentos.token_usage:main"
+token-usage = "ia_observability.parte1_fundamentos.token_usage:main"
 sessions = "ia_observability.parte3_producao.sessions:main"
 evaluation = "ia_observability.parte2_avaliacao.evaluation:main"
 judges = "ia_observability.parte2_avaliacao.judges:main"
-versioning = "ia_observability.parte3_producao.version_tracking:main"
+version-tracking = "ia_observability.parte3_producao.version_tracking:main"
 monitoring = "ia_observability.parte3_producao.production_monitoring:main"
 benchmark = "ia_observability.parte4_avancado.experiment_comparison:main"
-toolcalls = "ia_observability.parte3_producao.tool_calls:main"
+tool-calls = "ia_observability.parte3_producao.tool_calls:main"
 prompts = "ia_observability.parte4_avancado.prompt_management:main"
 langchain-agent = "ia_observability.parte3_producao.langchain_agent:main"
 datasets = "ia_observability.parte2_avaliacao.datasets_demo:main"
-prompt-opt = "ia_observability.parte4_avancado.prompt_optimization:main"
+prompt-optimization = "ia_observability.parte4_avancado.prompt_optimization:main"
 
 [build-system]
 requires = ["hatchling"]

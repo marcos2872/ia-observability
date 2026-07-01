@@ -1,9 +1,11 @@
 """Configuracao centralizada do MLflow e cliente OpenAI via AI Gateway."""
 
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 from dotenv import load_dotenv
+from openai import APIError, APITimeoutError, RateLimitError
 
 # Desliga a telemetria do MLflow ANTES de importar o mlflow (thread extra que
 # faz imports + HTTP em background; ver _disable_async_prompt_linking abaixo).
@@ -35,8 +37,6 @@ def _disable_async_prompt_linking() -> None:
         pass
 
 
-_disable_async_prompt_linking()
-
 # Carrega .env da raiz do projeto
 _env_path = Path(__file__).resolve().parent.parent.parent / ".env"
 load_dotenv(_env_path)
@@ -45,10 +45,44 @@ MLFLOW_TRACKING_URI: str = os.getenv("mlflow_url", "http://localhost:5000")
 
 # Endpoint do MLflow AI Gateway (compativel com OpenAI)
 MLFLOW_GATEWAY_URL: str = os.getenv(
-    "mlflow_openia_url", "http://localhost:5000/gateway/mlflow/v1"
+    "mlflow_openai_url", "http://localhost:5000/gateway/mlflow/v1"
 )
 
 MODEL_NAME: str = os.getenv("mlflow_model", "qwen3.5-9b")
+
+
+def make_predict_fn(
+    system_prompt: str,
+    temperature: float = 0.7,
+) -> Callable[[str], str]:
+    """Cria uma funcao de predicao para use com mlflow.evaluate().
+
+    A funcao criada recebe uma pergunta (str) e retorna a resposta do modelo
+    usando o system prompt e temperatura configurados.
+    """
+    def predict_fn(question: str) -> str:
+        client = get_client()
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": question},
+                ],
+                temperature=temperature,
+            )
+            return response.choices[0].message.content or "(resposta vazia)"
+        except (APITimeoutError, RateLimitError) as e:
+            print(f"  [ERRO] Timeout/rate limit na chamada ao modelo: {e}")
+            return "(erro: servidor temporariamente indisponivel)"
+        except APIError as e:
+            print(f"  [ERRO] API retornou erro: {e}")
+            return f"(erro na chamada: {e.message})"
+        except Exception as e:
+            print(f"  [ERRO] Falha inesperada na chamada ao modelo: {e}")
+            return "(erro inesperado)"
+    return predict_fn
+
 
 # Judge model separado — permite usar um modelo maior/melhor para avaliacao
 _JUDGE_MODEL_NAME: str = os.getenv("mlflow_judge_model", MODEL_NAME)
@@ -62,6 +96,9 @@ JUDGE_MODEL: str = f"gateway:/{_JUDGE_MODEL_NAME}"
 os.environ.setdefault("OPENAI_API_BASE", MLFLOW_GATEWAY_URL)
 os.environ.setdefault("OPENAI_API_KEY", "not-needed")
 OPTIMIZER_JUDGE_MODEL: str = f"openai:/{_JUDGE_MODEL_NAME}"
+
+# GEPA budget: max number of metric calls (evaluations).
+GEPA_MAX_METRIC_CALLS: int = int(os.getenv("GEPA_MAX_METRIC_CALLS", "30"))
 
 
 def setup_mlflow(experiment_name: str) -> None:
@@ -94,7 +131,7 @@ def patch_judge_timeout(timeout: int = 300) -> None:
 
     _original_send = mu._send_request
 
-    def _patched_send(endpoint, headers, payload):
+    def _patched_send(endpoint: str, headers: dict, payload: dict) -> dict:
         import requests
 
         from mlflow.exceptions import MlflowException
@@ -201,9 +238,18 @@ def patch_litellm_max_tokens(default_max_tokens: int = 4096) -> None:
     litellm.completion = _patched
 
 
-# Torna o parsing dos judges tolerante a markdown/cercas/JSON extra — util com
-# modelos de judge menores que nem sempre devolvem JSON estrito.
-patch_judge_json_parsing()
-# Evita que a reflexao do GEPA (e os judges) trunquem a saida por falta de
-# max_tokens — o prompt otimizado vinha cortado no meio.
-patch_litellm_max_tokens()
+def apply_patches() -> None:
+    """Aplica todas as correcoes (monkey patches) necessarias para o projeto.
+
+    Deve ser chamada explicitamente no inicio de cada demo, antes de
+    qualquer uso de MLflow judges ou litellm. Nao executa na importacao
+    do modulo para evitar side effects indesejados.
+
+    Aplica:
+    - _disable_async_prompt_linking: Previne deadlock no Python 3.14
+    - patch_judge_json_parsing: Torna parsing de judges tolerante a JSON extra
+    - patch_litellm_max_tokens: Garante max_tokens minimo no GEPA e judges
+    """
+    _disable_async_prompt_linking()
+    patch_judge_json_parsing()
+    patch_litellm_max_tokens()

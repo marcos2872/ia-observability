@@ -25,7 +25,14 @@ TEMPO ESTIMADO:  20 min
 import mlflow
 from mlflow.genai.scorers import Correctness, Guidelines, RelevanceToQuery
 
-from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_judge_timeout, setup_mlflow
+from ia_observability.config import (
+    JUDGE_MODEL,
+    MODEL_NAME,
+    apply_patches,
+    make_predict_fn,
+    patch_judge_timeout,
+    setup_mlflow,
+)
 
 # ---------------------------------------------------------------------------
 # Dataset de benchmark (compartilhado entre todas as configuracoes)
@@ -119,26 +126,7 @@ CONFIGS = [
 ]
 
 
-def make_predict_fn(system_prompt: str, temperature: float):
-    """Factory que cria uma predict_fn com configuracao especifica.
 
-    Cada configuracao gera uma predict_fn diferente, permitindo
-    avaliar o impacto de cada parametro separadamente.
-    """
-
-    def predict_fn(question: str) -> str:
-        client = get_client()
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": question},
-            ],
-            temperature=temperature,
-        )
-        return response.choices[0].message.content
-
-    return predict_fn
 
 
 # ---------------------------------------------------------------------------
@@ -148,6 +136,7 @@ def make_predict_fn(system_prompt: str, temperature: float):
 
 def main() -> None:
     """Executa benchmark comparativo entre configuracoes."""
+    apply_patches()
     setup_mlflow("08-experiment-comparison")
     patch_judge_timeout(300)
     mlflow.openai.autolog()

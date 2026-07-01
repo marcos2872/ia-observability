@@ -27,9 +27,11 @@ import json
 import time
 
 import mlflow
+from openai import APIError, APITimeoutError, RateLimitError
 from mlflow.entities import SpanType
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
+from ia_observability.config import MODEL_NAME, apply_patches, get_client, setup_mlflow
+from ia_observability._tools import get_weather, search_docs, calculate, check_inventory
 
 # ---------------------------------------------------------------------------
 # Definicao de tools (funcoes que o modelo pode chamar)
@@ -102,60 +104,6 @@ TOOLS = [
 
 
 # ---------------------------------------------------------------------------
-# Implementacao das tools (simuladas)
-# ---------------------------------------------------------------------------
-
-
-def get_weather(city: str, unit: str = "celsius") -> dict:
-    """Simula API de previsao do tempo."""
-    data = {
-        "Sao Paulo": {"temp": 22, "condition": "Parcialmente nublado"},
-        "Rio de Janeiro": {"temp": 28, "condition": "Ensolarado"},
-        "Curitiba": {"temp": 15, "condition": "Chuva leve"},
-    }
-    weather = data.get(city, {"temp": 20, "condition": "Desconhecido"})
-    return {
-        "city": city,
-        "temperature": weather["temp"],
-        "unit": unit,
-        "condition": weather["condition"],
-    }
-
-
-def search_docs(query: str, max_results: int = 3) -> list[dict]:
-    """Simula busca em base de conhecimento."""
-    docs = [
-        {"title": "MLflow Tracing Quickstart", "snippet": "Auto-tracing captura chamadas automaticamente..."},
-        {"title": "Token Usage Tracking", "snippet": "MLflow rastreia input/output tokens por span..."},
-        {"title": "Evaluation com Scorers", "snippet": "Use mlflow.genai.evaluate() com scorers built-in..."},
-        {"title": "Tool Calling Observability", "snippet": "SpanType.TOOL permite rastrear execucao de tools..."},
-    ]
-    filtered = [
-        d for d in docs
-        if query.lower() in d["title"].lower() or query.lower() in d["snippet"].lower()
-    ]
-    return filtered[:max_results] if filtered else docs[:max_results]
-
-
-def calculate(expression: str) -> dict:
-    """Executa calculo simples (seguro — so operacoes basicas)."""
-    allowed = set("0123456789+-*/.(). ")
-    if not all(c in allowed for c in expression):
-        return {"error": "Expressao invalida", "expression": expression}
-    try:
-        result = eval(expression)  # noqa: S307 - apenas operacoes numericas permitidas
-        return {"expression": expression, "result": result}
-    except Exception as e:
-        return {"error": str(e), "expression": expression}
-
-
-def check_inventory(product: str) -> dict:
-    """Simula consulta a API de estoque que falha (timeout/erro)."""
-    # Simula latencia alta seguida de falha
-    time.sleep(2.5)
-    raise TimeoutError(f"Timeout ao consultar estoque do produto '{product}' — API indisponivel")
-
-
 # Mapeamento nome -> funcao
 TOOL_REGISTRY = {
     "get_weather": get_weather,
@@ -198,22 +146,32 @@ def agent_with_tools(user_message: str) -> str:
             "messages": messages,
             "tools_available": [t["function"]["name"] for t in TOOLS],
         })
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-        )
-        choice = response.choices[0]
-        tool_calls = choice.message.tool_calls or []
-        span.set_outputs({
-            "finish_reason": choice.finish_reason,
-            "tool_calls_count": len(tool_calls),
-            "tool_calls": [
-                {"name": tc.function.name, "args": tc.function.arguments}
-                for tc in tool_calls
-            ],
-        })
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=messages,
+                tools=TOOLS,
+                tool_choice="auto",
+            )
+            choice = response.choices[0]
+            tool_calls = choice.message.tool_calls or []
+            span.set_outputs({
+                "finish_reason": choice.finish_reason,
+                "tool_calls_count": len(tool_calls),
+                "tool_calls": [
+                    {"name": tc.function.name, "args": tc.function.arguments}
+                    for tc in tool_calls
+                ],
+            })
+        except (APITimeoutError, RateLimitError) as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            return "(resposta indisponivel por erro do modelo)"
+        except APIError as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            return f"(erro na chamada: {str(e)})"
+        except Exception as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            return "(erro inesperado)"
 
     # Se o modelo decidiu chamar tools
     if tool_calls:
@@ -278,13 +236,23 @@ def agent_with_tools(user_message: str) -> str:
                 "messages_count": len(messages),
                 "tools_executed": [tc.function.name for tc in tool_calls],
             })
-            final_response = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=messages,
-            )
-            answer = final_response.choices[0].message.content
-            span.set_outputs({"response_length": len(answer) if answer else 0})
-            return answer or "(resposta vazia)"
+            try:
+                final_response = client.chat.completions.create(
+                    model=MODEL_NAME,
+                    messages=messages,
+                )
+                answer = final_response.choices[0].message.content or "(resposta vazia)"
+                span.set_outputs({"response_length": len(answer) if answer else 0})
+                return answer
+            except (APITimeoutError, RateLimitError) as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return "(erro: servidor temporariamente indisponivel)"
+            except APIError as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return f"(erro na chamada: {str(e)})"
+            except Exception as e:
+                print(f"[ERRO] Falha na chamada ao modelo: {e}")
+                return "(erro inesperado)"
     else:
         # Modelo respondeu diretamente sem tools
         return choice.message.content or "(resposta vazia)"
@@ -339,6 +307,7 @@ def demo_tool_failure() -> None:
 
 def main() -> None:
     """Executa todas as demos de tool calling com observabilidade."""
+    apply_patches()
     setup_mlflow("09-tool-calls")
     mlflow.openai.autolog()
 

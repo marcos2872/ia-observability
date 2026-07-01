@@ -24,17 +24,19 @@ TEMPO ESTIMADO:  30 min (a otimização leva vários minutos)
   uv run prompt-opt    ou    make prompt-opt
 """
 
-import os
 import unicodedata
 
 import mlflow
+from openai import APIError, APITimeoutError, RateLimitError
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.optimize import GepaPromptOptimizer, MetaPromptOptimizer
 from mlflow.genai.scorers import scorer
 
 from ia_observability.config import (
+    GEPA_MAX_METRIC_CALLS,
     MODEL_NAME,
     OPTIMIZER_JUDGE_MODEL,
+    apply_patches,
     get_client,
     patch_judge_timeout,
     setup_mlflow,
@@ -55,7 +57,6 @@ PROMPT_NAME = "observability-system-prompt"
 # modelos pequenos/locais geram candidatos fracos ou vazios; um modelo forte
 # (ex: GPT-4/5) melhora muito. Para resultado rapido e confiavel, veja a Demo 2
 # (Metaprompting), que reescreve o prompt em 1 chamada com guidelines explicitas.
-GEPA_MAX_METRIC_CALLS: int = int(os.getenv("GEPA_MAX_METRIC_CALLS", "30"))
 
 # SYSTEM prompt propositalmente fraco/vago — a otimizacao deve melhora-lo.
 # Nao tem variaveis: a mensagem a classificar vai na mensagem do usuario.
@@ -158,41 +159,40 @@ def label_accuracy(outputs, expectations) -> Feedback:
 # e use 'expected_response' (o rotulo) no lugar de 'label' no TRAIN_DATA.
 
 
-# URI da versao exata do prompt em uso (setado por _register_weak_prompt()).
-# Versao explicita (ex: prompts:/nome/3) em vez de @latest: cada execucao cria
-# uma nova versao e @latest seria ambiguo entre as demos.
-_PROMPT_URI: str = ""
-
-
 def _register_weak_prompt() -> str:
     """Registra o system prompt fraco e retorna o URI da versao exata criada."""
-    global _PROMPT_URI
     pv = mlflow.genai.register_prompt(name=PROMPT_NAME, template=WEAK_SYSTEM_PROMPT)
-    _PROMPT_URI = f"prompts:/{PROMPT_NAME}/{pv.version}"
-    print(f"  Prompt registrado: {_PROMPT_URI}")
-    return _PROMPT_URI
+    prompt_uri = f"prompts:/{PROMPT_NAME}/{pv.version}"
+    print(f"  Prompt registrado: {prompt_uri}")
+    return prompt_uri
 
 
-def predict_fn(mensagem: str) -> str:
-    """Funcao de predicao avaliada pela otimizacao.
+def make_optimization_predict_fn(prompt_uri: str):
+    """Cria o predict_fn com o prompt_uri fixado para cada otimizacao."""
 
-    Carrega o SYSTEM prompt do registry (o template que esta sendo otimizado) e
-    o usa como mensagem de sistema; a mensagem do usuario e o texto a classificar.
+    def _predict(mensagem: str) -> str:
+        system_prompt = mlflow.genai.load_prompt(prompt_uri).template
+        client = get_client()
+        try:
+            completion = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": mensagem},
+                ],
+            )
+            return completion.choices[0].message.content or "(resposta vazia)"
+        except (APITimeoutError, RateLimitError) as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            return "(erro: servidor temporariamente indisponivel)"
+        except APIError as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            return f"(erro na chamada: {str(e)})"
+        except Exception as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            return "(erro inesperado)"
 
-    Com o system prompt vago, o modelo responde em prosa (formato errado) e nem
-    sempre sabe as categorias validas -> score baixo. A otimizacao deve ensinar o
-    modelo, via system prompt, a escolher a categoria certa e responder APENAS o
-    rotulo. E justamente o system prompt que carrega esse conhecimento.
-    """
-    system_prompt = mlflow.genai.load_prompt(_PROMPT_URI).template
-    completion = get_client().chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": mensagem},
-        ],
-    )
-    return completion.choices[0].message.content
+    return _predict
 
 
 # ---------------------------------------------------------------------------
@@ -214,7 +214,7 @@ def demo_gepa_optimization() -> None:
     print("  [AVISO] A otimizacao pode levar varios minutos. Acompanhe o MLflow UI.")
 
     result = mlflow.genai.optimize_prompts(
-        predict_fn=predict_fn,
+        predict_fn=make_optimization_predict_fn(prompt_uri),
         train_data=TRAIN_DATA,
         prompt_uris=[prompt_uri],
         optimizer=GepaPromptOptimizer(
@@ -253,7 +253,7 @@ def demo_metaprompt_optimization() -> None:
     print("  Reestruturando o prompt (zero-shot, 1 rodada)...")
 
     result = mlflow.genai.optimize_prompts(
-        predict_fn=predict_fn,
+        predict_fn=make_optimization_predict_fn(prompt_uri),
         train_data=[],
         prompt_uris=[prompt_uri],
         optimizer=MetaPromptOptimizer(
@@ -291,6 +291,7 @@ def demo_metaprompt_optimization() -> None:
 
 def main() -> None:
     """Executa as demos de prompt optimization."""
+    apply_patches()
     setup_mlflow(EXPERIMENT_NAME)
     patch_judge_timeout(300)
 

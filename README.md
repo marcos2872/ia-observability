@@ -98,7 +98,7 @@ uv sync
 
 # Configurar .env (copie de .env.example)
 # mlflow_url=http://<seu-server>:5000/
-# mlflow_openia_url=http://<seu-server>:5000/gateway/mlflow/v1
+# mlflow_openai_url=http://<seu-server>:5000/gateway/mlflow/v1
 # mlflow_model=qwen3.5-9b
 # mlflow_judge_model=qwen3.5-9b          # modelo para judges/scorers e reflexao do GEPA
 ```
@@ -169,7 +169,7 @@ src/ia_observability/
 
 ## Como os modelos sao acessados
 
-- **Inferencia e LangChain**: o SDK OpenAI (`get_client()`) e o `ChatOpenAI` apontam para o MLflow AI Gateway (`mlflow_openia_url`), que e OpenAI-compatible.
+- **Inferencia e LangChain**: o SDK OpenAI (`get_client()`) e o `ChatOpenAI` apontam para o MLflow AI Gateway (`mlflow_openai_url`), que e OpenAI-compatible.
 - **Judges/scorers**: usam o provider nativo `gateway:/<modelo>` do MLflow.
 - **Reflexao do GEPA**: usa `openai:/<modelo>` via litellm, com `OPENAI_API_BASE` apontando para o mesmo Gateway (configurado em `config.py`).
 

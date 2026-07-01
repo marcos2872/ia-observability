@@ -29,7 +29,14 @@ Referência: https://mlflow.org/docs/latest/genai/eval-monitor/quickstart/
 import mlflow
 from mlflow.genai.scorers import Correctness, Guidelines, RelevanceToQuery
 
-from ia_observability.config import JUDGE_MODEL, MODEL_NAME, get_client, patch_judge_timeout, setup_mlflow
+from ia_observability.config import (
+    JUDGE_MODEL,
+    MODEL_NAME,
+    apply_patches,
+    make_predict_fn,
+    patch_judge_timeout,
+    setup_mlflow,
+)
 
 
 def get_eval_dataset() -> list[dict]:
@@ -90,40 +97,18 @@ def get_eval_dataset() -> list[dict]:
     ]
 
 
-def predict_fn(question: str) -> str:
-    """Funcao de predicao que sera avaliada pelos judges.
-
-    A assinatura deve corresponder aos campos de 'inputs' no dataset.
-    O MLflow chama esta funcao para cada item do dataset e passa o output
-    para os scorers avaliarem.
-
-    Args:
-        question: Pergunta do dataset (mapeada de inputs.question).
-
-    Returns:
-        Resposta gerada pelo modelo.
-    """
-    client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {
-                "role": "system",
-                "content": "Responda de forma concisa e precisa. Use no maximo 3 frases.",
-            },
-            {"role": "user", "content": question},
-        ],
-    )
-    return response.choices[0].message.content
-
-
 def main() -> None:
     """Executa avaliacao completa com scorers built-in."""
+    apply_patches()
     setup_mlflow("04-evaluation")
     patch_judge_timeout(300)
     mlflow.openai.autolog()
 
     dataset = get_eval_dataset()
+    predict_fn = make_predict_fn(
+        "Voce e um assistente de IA generativa respondendo perguntas sobre MLflow.",
+        0.5,
+    )
 
     print("=" * 60)
     print("AVALIACAO COM SCORERS BUILT-IN")

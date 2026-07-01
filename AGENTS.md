@@ -29,7 +29,7 @@ Requires `.env` at repo root (see `.env.example`):
 | Var | Purpose |
 |-----|---------|
 | `mlflow_url` | MLflow tracking server (SQL backend required for datasets) |
-| `mlflow_openia_url` | MLflow AI Gateway base URL (OpenAI-compatible) |
+| `mlflow_openai_url` | MLflow AI Gateway base URL (OpenAI-compatible) |
 | `mlflow_model` | Model name for inference |
 | `mlflow_judge_model` | Model for LLM judges and GEPA reflection (can differ from inference model) |
 

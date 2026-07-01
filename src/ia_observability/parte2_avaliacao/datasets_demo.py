@@ -32,7 +32,7 @@ from mlflow.genai.datasets import (
     set_dataset_tags,
 )
 
-from ia_observability.config import setup_mlflow
+from ia_observability.config import apply_patches, setup_mlflow
 
 DATASET_NAME = "observability-eval-set"
 EXPERIMENT_NAME = "12-datasets"
@@ -155,6 +155,7 @@ def demo_fetch_dataset() -> None:
 
 def main() -> None:
     """Executa as demos de evaluation datasets."""
+    apply_patches()
     setup_mlflow(EXPERIMENT_NAME)
 
     print("=" * 60)

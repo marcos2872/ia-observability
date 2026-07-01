@@ -31,8 +31,9 @@ Referência: https://mlflow.org/docs/latest/genai/tracing/quickstart/
 """
 
 import mlflow
+from openai import APIError, APITimeoutError, RateLimitError
 
-from ia_observability.config import MODEL_NAME, get_client, setup_mlflow
+from ia_observability.config import MODEL_NAME, apply_patches, get_client, setup_mlflow
 
 
 # ---------------------------------------------------------------------------
@@ -53,14 +54,21 @@ def demo_auto_tracing() -> None:
     mlflow.openai.autolog()
     client = get_client()
 
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {"role": "system", "content": "Voce e um assistente util."},
-            {"role": "user", "content": "O que e observabilidade em sistemas de IA?"},
-        ],
-    )
-    print(f"  Resposta: {response.choices[0].message.content[:150]}...")
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {"role": "system", "content": "Voce e um assistente util."},
+                {"role": "user", "content": "O que e observabilidade em sistemas de IA?"},
+            ],
+        )
+        print(f"  Resposta: {response.choices[0].message.content[:150]}...")
+    except (APITimeoutError, RateLimitError) as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+    except APIError as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+    except Exception as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -122,20 +130,30 @@ def generate_answer(question: str, context: str) -> str:
     permitindo ao MLflow capturar metricas especificas de LLM.
     """
     client = get_client()
-    response = client.chat.completions.create(
-        model=MODEL_NAME,
-        messages=[
-            {
-                "role": "system",
-                "content": (
-                    "Responda a pergunta usando APENAS o contexto fornecido. "
-                    f"Contexto: {context}"
-                ),
-            },
-            {"role": "user", "content": question},
-        ],
-    )
-    return response.choices[0].message.content
+    try:
+        response = client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "Responda a pergunta usando APENAS o contexto fornecido. "
+                        f"Contexto: {context}"
+                    ),
+                },
+                {"role": "user", "content": question},
+            ],
+        )
+        return response.choices[0].message.content or "(resposta vazia)"
+    except (APITimeoutError, RateLimitError) as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return "(erro: servidor temporariamente indisponivel)"
+    except APIError as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return f"(erro na chamada: {str(e)})"
+    except Exception as e:
+        print(f"[ERRO] Falha na chamada ao modelo: {e}")
+        return "(erro inesperado)"
 
 
 # ---------------------------------------------------------------------------
@@ -154,14 +172,27 @@ def demo_context_block() -> None:
     with mlflow.start_span(name="context-block-demo") as span:
         span.set_inputs({"task": "summarization"})
 
-        response = client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[
-                {"role": "user", "content": "Resuma em 1 frase: MLflow e uma plataforma de MLOps."},
-            ],
-        )
-        result = response.choices[0].message.content
-        span.set_outputs({"summary": result})
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "user", "content": "Resuma em 1 frase: MLflow e uma plataforma de MLOps."},
+                ],
+            )
+            result = response.choices[0].message.content or "(resposta vazia)"
+            span.set_outputs({"summary": result})
+        except (APITimeoutError, RateLimitError) as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            result = "(erro: servidor temporariamente indisponivel)"
+            span.set_outputs({"summary": result})
+        except APIError as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            result = f"(erro na chamada: {str(e)})"
+            span.set_outputs({"summary": result})
+        except Exception as e:
+            print(f"[ERRO] Falha na chamada ao modelo: {e}")
+            result = "(erro inesperado)"
+            span.set_outputs({"summary": result})
 
     print(f"  Resumo: {result}")
 
@@ -173,6 +204,7 @@ def demo_context_block() -> None:
 
 def main() -> None:
     """Executa todas as demos de tracing."""
+    apply_patches()
     setup_mlflow("01-tracing-basics")
 
     print("=" * 60)
